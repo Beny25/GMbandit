@@ -1,4 +1,4 @@
-# ⏹ GMbandit Onchain Rituals on Base
+# 🟦 GMbandit Onchain Rituals on Base
 
 **GMbandit** is a lightweight onchain ritual app built on **Base**, designed for the community and by the community ⏹
 
