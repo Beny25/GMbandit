@@ -73,4 +73,4 @@ Built to make the Base ecosystem more human —
 
 ## 🧠 License
 
-MIT License © [Bandit.base.eth](https://x.com/Alidepok1/status/1986283176994742426))
+MIT License © [Bandit.base.eth](https://x.com/Alidepok1/status/1986283176994742426)
