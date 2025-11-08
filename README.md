@@ -57,12 +57,26 @@ A simple ritual flow that keeps the community connected onchain.
 
 ---
 
+## 🔗 Deployed Contract
+
+The GMbandit contract is live and verified on Base Mainnet:
+
+Contract Address:  
+[0x499b504563C08A661a0c6e1387eb4FB551C362F5](https://basescan.org/address/0x499b504563C08A661a0c6e1387eb4FB551C362F5)
+
+Owner Address (Controller):  
+[0x4ae70118dd2cb814404daaa064dab470b7f76542](https://basescan.org/address/0x4ae70118dd2cb814404daaa064dab470b7f76542)
+
+This contract is fully verified.  
+Feel free to inspect, fork, or vibe.
+
+---
 ## 💬 Philosophy
 
 > “Not everything onchain needs to be serious.
 > Sometimes, it just needs to be consistent.”
 
-Built to make the Base ecosystem more human —
+Built to make the Base ecosystem more human 
 **one GM, one GN, one vibe at a time.**
 
 ---
