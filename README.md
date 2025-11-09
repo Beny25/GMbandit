@@ -1,9 +1,9 @@
-<<<<<<< HEAD
-# Sample Hardhat Project
+![GMbandit Banner](assets/gmbandit.jpg)
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a Hardhat Ignition module that deploys that contract.
+---
 
-Try running some of the following tasks:
+## 🟦 Feature
+
 
 * ✅ Onchain `gm()`, `gn()`, and `gosleep()` functions
 * 💸 Flat ritual fee: **0.00000033 ETH** (~$0.001)
@@ -85,18 +85,3 @@ Built to make the Base ecosystem more human
 ## 🧠 License
 
 MIT License © [Bandit.base.eth](https://x.com/Alidepok1/status/1986283176994742426)
-=======
-# Sample Hardhat Project
-
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a Hardhat Ignition module that deploys that contract.
-
-Try running some of the following tasks:
-
-```shell
-npx hardhat help
-npx hardhat test
-REPORT_GAS=true npx hardhat test
-npx hardhat node
-npx hardhat ignition deploy ./ignition/modules/Lock.js
-```
->>>>>>> a5f5532 (fix README conflict)
