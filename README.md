@@ -1,8 +1,8 @@
-![GMbandit Banner](assets/gmbandit.jpg)
+# Sample Hardhat Project
 
----
+This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a Hardhat Ignition module that deploys that contract.
 
-## ✨ Features
+Try running some of the following tasks:
 
 * ✅ Onchain `gm()`, `gn()`, and `gosleep()` functions
 * 💸 Flat ritual fee: **0.00000033 ETH** (~$0.001)
