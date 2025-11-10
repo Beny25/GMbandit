@@ -94,35 +94,38 @@
 
 <script>
 let provider = null;
+let web3Provider = null;
 let signerAddress = null;
 
-// Base chain settings
-const BASE_CHAIN_ID = 8453;
 const CONTRACT = "0x725Ccb4ddCB715f468b301395Dfd1b1efDb5308A";
+const ABI = [
+  {
+    "inputs":[{"name": "newMessage","type":"string"}],
+    "name":"performRitual",
+    "outputs":[],
+    "stateMutability":"payable",
+    "type":"function"
+  }
+];
 
-const ABI = [{
-  "inputs":[{"internalType":"string","name":"newMessage","type":"string"}],
-  "name":"performRitual",
-  "outputs":[],
-  "stateMutability":"payable",
-  "type":"function"
-}];
-
+// Connect wallet (WalletConnect v1)
 async function connectWallet() {
   try {
-    provider = await window.WalletConnectEthereumProvider.init({
-      projectId: "a3a3ba8ba4eaa7f69d0488d76a84b3df",
-      chains: [BASE_CHAIN_ID],
-      showQrModal: true,
+    provider = new WalletConnectProvider.default({
+      rpc: {
+        8453: "https://mainnet.base.org"
+      },
+      chainId: 8453
     });
 
-    await provider.connect();
+    await provider.enable();
 
-    const accounts = await provider.request({ method: "eth_accounts" });
-    signerAddress = accounts[0];
+    web3Provider = new ethers.providers.Web3Provider(provider);
+    const signer = web3Provider.getSigner();
+    signerAddress = await signer.getAddress();
 
-    const btn = document.getElementById("connectButton");
-    btn.innerText = signerAddress.substring(0,6)+"..."+signerAddress.slice(-4);
+    document.getElementById("connectButton").innerText =
+      signerAddress.substring(0,6)+"..."+signerAddress.slice(-4);
 
     document.getElementById("disconnectButton").style.display = "inline-block";
 
@@ -132,53 +135,42 @@ async function connectWallet() {
 }
 
 function disconnectWallet() {
-  try {
+  if (provider) {
     provider.disconnect();
-  } catch(e){}
-  provider = null;
-  signerAddress = null;
-
+  }
   document.getElementById("connectButton").innerText = "Connect Wallet";
   document.getElementById("disconnectButton").style.display = "none";
+  signerAddress = null;
 }
 
-// Encode ABI
-function encodePayload(msg) {
-  const iface = new ethers.Interface(ABI);
-  return iface.encodeFunctionData("performRitual", [msg]);
-}
-
-async function sendRitual(text) {
-  if (!provider || !signerAddress) {
+// Send ritual
+async function sendRitual(msg) {
+  if (!signerAddress) {
     alert("Connect wallet first!");
     return;
   }
 
-  const tx = {
-    from: signerAddress,
-    to: CONTRACT,
-    data: encodePayload(text),
-    value: "0x38D7EA4C68000" // 0.0001 ETH
-  };
+  const contract = new ethers.Contract(CONTRACT, ABI, web3Provider.getSigner());
 
   try {
-    const result = await provider.request({
-      method: "eth_sendTransaction",
-      params: [tx],
+    const tx = await contract.performRitual(msg, {
+      value: ethers.utils.parseEther("0.0001")
     });
-    alert("Tx sent ✅\n" + result);
+    alert("Tx sent ✅ " + tx.hash);
   } catch(e) {
     alert("Transaction failed: " + e.message);
   }
 }
 
+// UI hooks
 document.getElementById("connectButton").onclick = connectWallet;
 document.getElementById("disconnectButton").onclick = disconnectWallet;
 
 document.getElementById("gmBtn").onclick = () => sendRitual("GM Ritual 🌞");
 document.getElementById("gnBtn").onclick = () => sendRitual("GN Ritual 🌙");
-document.getElementById("sleepBtn").onclick = () => sendRitual("Go Sleep 😴");
-  </script>
+document.getElementById("sleepBtn").onclick = () => sendRitual("GoSleep 😴");
+
+    </script>
 
 <script src="https://cdn.ethers.io/lib/ethers-6.3.0.umd.min.js"></script>
 
