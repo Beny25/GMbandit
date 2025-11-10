@@ -5,79 +5,37 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GM Ritual Dashboard ⚡</title>
   <style>
-    body {
-      background: #0f0f0f;
-      color: #ffffff;
-      text-align: center;
-      font-family: Arial, sans-serif;
-      padding: 30px;
-    }
-    h1 {
-      font-size: 32px;
-      margin-bottom: 10px;
-    }
-    button {
-      width: 80%;
-      max-width: 400px;
-      padding: 15px;
-      margin: 10px auto;
-      font-size: 20px;
-      border-radius: 12px;
-      border: none;
-      cursor: pointer;
-    }
-    #connectBtn {
-      background: #1967ff;
-      color: #fff;
-    }
-    #gmBtn {
-      background: #1e90ff;
-      color: #fff;
-    }
-    #gnBtn {
-      background: #9b59b6;
-      color: #fff;
-    }
-    #sleepBtn {
-      background: #555;
-      color: #999;
-    }
-    #deployLink {
-      display: block;
-      color: #4da6ff;
-      margin-top: 40px;
-      font-size: 18px;
-      text-decoration: none;
-    }
+    body { background:#0f0f0f; color:white; text-align:center; font-family:Arial; padding:30px; }
+    h1 { font-size:32px; margin-bottom:10px; }
+    button { width:80%; max-width:400px; padding:15px; font-size:20px; margin:10px auto; border-radius:12px; border:none; cursor:pointer; }
+    button:disabled { opacity:0.4; cursor:not-allowed; }
+    #connectBtn { background:#1967ff; color:white; }
+    #gmBtn { background:#1e90ff; color:white; }
+    #gnBtn { background:#9b59b6; color:white; }
+    #sleepBtn { background:#555; color:#999; }
+    #deployLink { display:block; color:#4da6ff; margin-top:40px; font-size:18px; text-decoration:none; }
   </style>
 
-  <!-- ✅ LOAD SCRIPTS -->
+  <!-- ✅ ASSET -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/web3modal/1.9.0/web3modal.min.js"></script>
   <script src="https://unpkg.com/@walletconnect/web3-provider/dist/umd/index.min.js"></script>
-
 </head>
+
 <body>
 
-  <h1>GM Ritual Dashboard ⚡</h1>
+<h1>GM Ritual Dashboard ⚡</h1>
 
-  <button id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
+<button id="connectBtn" disabled>Loading Wallet...</button>
 
-  <button id="gmBtn" onclick="gm()" disabled>GM Ritual 🌞</button>
-  <button id="gnBtn" onclick="gn()" disabled>GN Ritual 🌙</button>
-  <button id="sleepBtn" onclick="gosleep()" disabled>GoSleep Ritual 😴</button>
+<button id="gmBtn" disabled>GM Ritual 🌞</button>
+<button id="gnBtn" disabled>GN Ritual 🌙</button>
+<button id="sleepBtn" disabled>GoSleep Ritual 😴</button>
 
-  <a id="deployLink" href="/deploy">Deploy your contract 🚀</a>
-
+<a id="deployLink" href="/deploy">Deploy your contract 🚀</a>
 
 <script>
-
-  /* -------------------------------
-      ✅ CONFIG
-  --------------------------------- */
-
   const CONTRACT_ADDRESS = "0x725Ccb4ddCB715f468b301395Dfd1b1efDb5308A";
-
   const ABI = [
     "function gm() public",
     "function gn() public",
@@ -86,21 +44,25 @@
 
   let web3Modal;
   let provider;
-  let web3Provider;
   let signer;
+  let web3Provider;
 
-  /* -------------------------------
-      ✅ INIT WHEN PAGE READY
-  --------------------------------- */
-  window.addEventListener("load", async () => {
+  /* -------------------------------------------------- *
+     ✅ DELAYED INIT — WAIT UNTIL ALL SCRIPTS LOADED
+  * -------------------------------------------------- */
+  async function initWeb3Modal() {
+    if (!window.Web3Modal || !window.WalletConnectProvider) {
+      console.log("⏳ scripts not ready, retrying...");
+      return setTimeout(initWeb3Modal, 500);
+    }
+
+    console.log("✅ Scripts loaded");
 
     const providerOptions = {
       walletconnect: {
         package: window.WalletConnectProvider.default,
         options: {
-          rpc: {
-            8453: "https://mainnet.base.org"
-          },
+          rpc: { 8453: "https://mainnet.base.org" },
           chainId: 8453
         }
       }
@@ -112,19 +74,20 @@
       theme: "dark"
     });
 
-    console.log("✅ Web3Modal loaded");
-  });
+    console.log("✅ Web3Modal ready");
+
+    document.getElementById("connectBtn").disabled = false;
+    document.getElementById("connectBtn").innerText = "Connect Wallet";
+  }
+
+  initWeb3Modal();
 
 
-  /* -------------------------------
+  /* -------------------------------------------------- *
       ✅ CONNECT WALLET
-  --------------------------------- */
+  * -------------------------------------------------- */
   async function connectWallet() {
-
-    if (!web3Modal) {
-      alert("Web3Modal loading... wait 1 sec!");
-      return;
-    }
+    if (!web3Modal) return alert("Wallet still loading...");
 
     try {
       provider = await web3Modal.connect();
@@ -132,16 +95,16 @@
       try {
         await provider.request({
           method: "wallet_switchEthereumChain",
-          params: [{ chainId: "0x2105" }]  // BASE MAINNET
+          params: [{ chainId: "0x2105" }]
         });
-      } catch (switchErr) {
+      } catch {
         await provider.request({
           method: "wallet_addEthereumChain",
           params: [{
             chainId: "0x2105",
             chainName: "Base Mainnet",
-            nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
             rpcUrls: ["https://mainnet.base.org"],
+            nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
             blockExplorerUrls: ["https://basescan.org"]
           }]
         });
@@ -149,60 +112,62 @@
 
       web3Provider = new ethers.providers.Web3Provider(provider);
       signer = web3Provider.getSigner();
-
       const address = await signer.getAddress();
 
       document.getElementById("connectBtn").innerText =
-        "✅ " + address.slice(0, 6) + "..." + address.slice(-4);
+        "✅ " + address.slice(0,6) + "..." + address.slice(-4);
 
       document.getElementById("gmBtn").disabled = false;
       document.getElementById("gnBtn").disabled = false;
       document.getElementById("sleepBtn").disabled = false;
 
-    } catch (error) {
-      alert("Connection failed: " + error.message);
+    } catch (err) {
+      alert("Connection failed: " + err.message);
     }
   }
 
+  document.getElementById("connectBtn").onclick = connectWallet;
 
-  /* -------------------------------
-       ✅ GM
-  --------------------------------- */
+
+
+  /* -------------------------------------------------- *
+      ✅ Ritual Functions
+  * -------------------------------------------------- */
+
   async function gm() {
     try {
       const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
       await contract.gm();
-      alert("✅ GM Ritual submitted!");
+      alert("✅ GM Ritual sent!");
     } catch (err) {
-      alert("Error: " + err.message);
+      alert("❌ Error: " + err.message);
     }
   }
 
-  /* -------------------------------
-       ✅ GN
-  --------------------------------- */
   async function gn() {
     try {
       const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
       await contract.gn();
-      alert("✅ GN Ritual submitted!");
+      alert("✅ GN Ritual sent!");
     } catch (err) {
-      alert("Error: " + err.message);
+      alert("❌ Error: " + err.message);
     }
   }
 
-  /* -------------------------------
-      ✅ GOSLEEP
-  --------------------------------- */
   async function gosleep() {
     try {
       const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
       await contract.gosleep();
-      alert("✅ GoSleep Ritual submitted!");
+      alert("✅ Sleep Ritual sent!");
     } catch (err) {
-      alert("Error: " + err.message);
+      alert("❌ Error: " + err.message);
     }
   }
+
+  // Attach actions
+  document.getElementById("gmBtn").onclick = gm;
+  document.getElementById("gnBtn").onclick = gn;
+  document.getElementById("sleepBtn").onclick = gosleep;
 
 </script>
 
