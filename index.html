@@ -1,135 +1,95 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GMbandit • Onchain Rituals</title>
-
-<style>
-  body {
-    margin: 0;
-    padding: 0;
-    background: linear-gradient(180deg, #e8f1ff, #ffffff);
-    font-family: Arial, sans-serif;
-    color: #000;
-    text-align: center;
-  }
-
-  h1 {
-    margin-top: 40px;
-    font-size: 32px;
-    font-weight: 700;
-  }
-
-  .container {
-    max-width: 400px;
-    margin: auto;
-    padding: 20px;
-  }
-
-  button {
-    width: 100%;
-    padding: 14px;
-    margin: 10px 0;
-    background: #ffffff;
-    border: 2px solid #d0d0d0;
-    border-radius: 8px;
-    font-size: 18px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: 0.2s ease-in-out;
-  }
-
-  button:hover {
-    background: #f2f2f2;
-  }
-
-  #status {
-    margin-top: 20px;
-    font-size: 16px;
-    padding: 12px;
-  }
-
-  input {
-    width: 100%;
-    padding: 12px;
-    margin-top: 10px;
-    border: 2px solid #d0d0d0;
-    border-radius: 8px;
-    font-size: 16px;
-  }
-</style>
-</head>
-
-<body>
-
-<h1>GMbandit • Rituals Onchain</h1>
-
-<div class="container">
-
-  <button id="connect">Connect Wallet</button>
-
-  <button onclick="ritual('GM! ☀️')">GM Ritual</button>
-  <button onclick="ritual('GN! 🌙')">GN Ritual</button>
-  <button onclick="ritual('Go Sleep 😴')">GoSleep Ritual</button>
-
-  <input type="text" id="customMsg" placeholder="Write your message...">
-  <button onclick="ritualCustom()">Send Custom Ritual</button>
-
-  <button onclick="deployNew()">Deploy Your Contract</button>
-
-  <div id="status"></div>
-
-</div>
-
 <script type="module">
   import { ethers } from "https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.1/ethers.min.js";
 
-  let provider;
-  let signer;
+  let provider = null;
+  let signer = null;
+  let connectedAddress = null;
 
-  const contractAddress = "0x725Ccb4ddCB715f468b301395Dfd1b1efDb5308A"; // ✅ GMbanditV2
+  const connectBtn = document.getElementById("connectBtn");
+  const walletMenu = document.getElementById("walletMenu");
+  const walletAddr = document.getElementById("walletAddr");
+  const disconnectBtn = document.getElementById("disconnectBtn");
+  const statusBox = document.getElementById("status");
+
+  const contractAddress = "0x725Ccb4ddCB715f468b301395Dfd1b1efDb5308A";
 
   const abi = [
     "function performRitual(string newMessage) payable",
     "function fee() view returns (uint256)"
   ];
 
-  document.getElementById("connect").onclick = async function () {
-    if (!window.ethereum) {
-      alert("Install wallet first!");
-      return;
+  function shortAddr(addr) {
+    return addr.slice(0,6) + "..." + addr.slice(-4);
+  }
+
+  function updateUI() {
+    if (!connectedAddress) {
+      connectBtn.innerText = "Connect Wallet";
+      walletMenu.style.display = "none";
+    } else {
+      connectBtn.innerText = "✅ " + shortAddr(connectedAddress);
+      walletAddr.innerText = connectedAddress;
+      walletMenu.style.display = "block";
     }
-    await ethereum.request({ method: "eth_requestAccounts" });
-    provider = new ethers.BrowserProvider(window.ethereum);
-    signer = await provider.getSigner();
-    document.getElementById("status").innerHTML = "✅ Wallet Connected";
+  }
+
+  connectBtn.onclick = async function () {
+    if (!window.ethereum) return alert("Install MetaMask or BaseWallet!");
+
+    try {
+      provider = new ethers.BrowserProvider(window.ethereum);
+      const accounts = await ethereum.request({ method: "eth_requestAccounts" });
+      signer = await provider.getSigner();
+      connectedAddress = accounts[0];
+
+      statusBox.innerText = "🔗 Connected!";
+      updateUI();
+    } catch (err) {
+      console.error(err);
+      alert("Wallet connection failed");
+    }
   };
 
-  async function ritual(msg) {
+  disconnectBtn.onclick = function () {
+    provider = null;
+    signer = null;
+    connectedAddress = null;
+    statusBox.innerText = "🔌 Disconnected";
+
+    updateUI();
+  };
+
+  if (window.ethereum) {
+    window.ethereum.on("accountsChanged", async (accounts) => {
+      if (accounts.length === 0) {
+        connectedAddress = null;
+        signer = null;
+        provider = null;
+        statusBox.innerText = "🔌 Wallet disconnected";
+      } else {
+        connectedAddress = accounts[0];
+        provider = new ethers.BrowserProvider(window.ethereum);
+        signer = await provider.getSigner();
+        statusBox.innerText = "🔗 Connected!";
+      }
+      updateUI();
+    });
+  }
+
+  window.ritual = async function (msg) {
     if (!signer) return alert("Connect wallet first!");
 
     const contract = new ethers.Contract(contractAddress, abi, signer);
     const fee = await contract.fee();
 
-    const tx = await contract.performRitual(msg, { value: fee });
-    document.getElementById("status").innerHTML = "⏳ Sending ritual...";
-
-    await tx.wait();
-    document.getElementById("status").innerHTML = "✅ Ritual complete!";
-  }
-
-  async function ritualCustom() {
-    const msg = document.getElementById("customMsg").value;
-    if (!msg) return alert("Write something!");
-    ritual(msg);
-  }
-
-  async function deployNew() {
-    window.location.href = "https://basescan.org/address/0xb9C0b964E223D0058cdFEB445B4506415117b055";
-  }
-
+    try {
+      statusBox.innerText = "⏳ Sending ritual...";
+      const tx = await contract.performRitual(msg, { value: fee });
+      await tx.wait();
+      statusBox.innerText = "✅ Ritual sent: " + msg;
+    } catch (err) {
+      console.log(err);
+      statusBox.innerText = "❌ Ritual failed";
+    }
+  };
 </script>
-
-</body>
-</html>
