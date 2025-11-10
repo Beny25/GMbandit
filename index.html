@@ -7,38 +7,24 @@
 
 <style>
 body {
-  margin: 0;
-  padding: 0;
-  background: #0d0d0d;
-  color: white;
-  text-align: center;
+  margin: 0; padding: 0;
+  background: #0d0d0d; color: white; text-align: center;
   font-family: Arial, sans-serif;
 }
 button {
-  border: none;
-  padding: 16px 28px;
-  font-size: 20px;
-  border-radius: 12px;
-  cursor: pointer;
-  width: 80%;
-  margin: 14px auto;
-  display: block;
-  color: #fff;
+  width: 80%; padding: 16px; font-size: 20px;
+  border-radius: 12px; border: none; margin: 14px auto;
+  color: white; cursor: pointer; display: block;
 }
 #connectBtn { background: #1e5cff; }
 #gmBtn { background: #005bbb; }
 #gnBtn { background: #7b3ea9; }
 #sleepBtn { background: #555; }
-
-.disabled {
-  opacity: 0.4;
-  pointer-events: none;
-}
+.disabled { opacity: 0.4; pointer-events: none; }
 </style>
 
-<!-- WALLET CONNECT V2 -->
-<script src="https://unpkg.com/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
+<script src="https://unpkg.com/@walletconnect/modal@2.6.0/dist/index.umd.min.js"></script>
 
 </head>
 <body>
@@ -50,115 +36,83 @@ button {
 <button id="gnBtn" class="disabled">GN Ritual 🌙</button>
 <button id="sleepBtn" class="disabled">GoSleep Ritual 😴</button>
 
-<p><a href="deploy.html" style="color:#4da6ff; text-decoration:none;">Deploy your contract 🚀</a></p>
+<p><a href="deploy.html" style="color:#4da6ff;">Deploy your contract 🚀</a></p>
 
 <script>
-const BASE_CHAIN_ID_DEC = 8453;
-const BASE_CHAIN_ID_HEX = "0x2105";
-const BASE_RPC_URL = "https://mainnet.base.org";
-const CONTRACT_ADDRESS = "0x0000000000000000000000000000000000000000"; // isi nanti
+// ===================== ✅ CONTRACT DETAILS =====================
+const CONTRACT_ADDRESS = "0x725Ccb4ddCB715f468b301395Dfd1b1efDb5308A";
+const ABI = [
+  {"inputs": [], "name": "gm", "outputs": [], "stateMutability": "nonpayable", "type": "function"},
+  {"inputs": [], "name": "gn", "outputs": [], "stateMutability": "nonpayable", "type": "function"},
+  {"inputs": [], "name": "sleep", "outputs": [], "stateMutability": "nonpayable", "type": "function"}
+];
 
-let provider = null;
-let web3 = null;
-let selectedAccount = null;
+const BASE_CHAIN_HEX = "0x2105"; // 8453 Base mainnet
+let provider;
+let signer;
+let modal;
 
-function showError(msg) { alert(msg); }
+// ✅ WalletConnect v2 Modal Init
+modal = new WalletConnectModal.default({
+  projectId: "24b960bbcb9fa912923190d9ce99ed92",
+  walletConnectVersion: 2,
+  themeMode: "dark",
+});
 
-async function switchToBase() {
-  if (!window.ethereum) return;
-
+// ✅ Connect Wallet
+async function connect() {
   try {
-    await window.ethereum.request({
-      method: "wallet_switchEthereumChain",
-      params: [{ chainId: BASE_CHAIN_ID_HEX }]
+    const session = await modal.openModal({
+      chains: [8453], // Base
     });
-  } catch (switchError) {
-    if (switchError.code === 4902) {
-      try {
-        await window.ethereum.request({
-          method: "wallet_addEthereumChain",
-          params: [{
-            chainId: BASE_CHAIN_ID_HEX,
-            chainName: "Base Mainnet",
-            rpcUrls: [BASE_RPC_URL],
-            blockExplorerUrls: ["https://basescan.org"],
-            nativeCurrency: {
-              name: "ETH",
-              symbol: "ETH",
-              decimals: 18
-            }
-          }]
-        });
-      } catch (addErr) {
-        console.log(addErr);
-      }
-    } else {
-      console.log(switchError);
-    }
-  }
-}
 
-async function connectWallet() {
-  try {
-    // DETECT metamask/okx/bitget
-    if (window.ethereum) {
-      provider = window.ethereum;
-      await provider.request({ method: "eth_requestAccounts" });
-      web3 = new Web3(provider);
-      let accounts = await web3.eth.getAccounts();
-      selectedAccount = accounts[0];
+    const wcProvider = new ethers.providers.Web3Provider(session);
+    provider = wcProvider;
+    signer = wcProvider.getSigner();
+    const addr = await signer.getAddress();
 
-      await switchToBase();
+    document.getElementById("connectBtn").innerHTML =
+      "✅ " + addr.slice(0, 6) + "..." + addr.slice(-4);
 
-      enableButtons();
-      document.getElementById("connectBtn").innerHTML =
-        "✅ " + selectedAccount.slice(0,6) + "..." + selectedAccount.slice(-4);
+    enableButtons();
 
-    } else {
-      // fallback WALLETCONNECT
-      provider = new WalletConnectProvider.default({
-        rpc: {
-          8453: BASE_RPC_URL
-        }
-      });
-
-      await provider.enable();
-      web3 = new Web3(provider);
-
-      let accounts = await web3.eth.getAccounts();
-      selectedAccount = accounts[0];
-
-      enableButtons();
-      document.getElementById("connectBtn").innerHTML =
-        "✅ " + selectedAccount.slice(0,6) + "..." + selectedAccount.slice(-4);
-    }
   } catch (err) {
-    showError("Failed to connect wallet.\n" + err.message);
+    alert("Connection failed: " + err.message);
   }
 }
 
+// ✅ Enable Ritual Buttons After Connect
 function enableButtons() {
   document.getElementById("gmBtn").classList.remove("disabled");
   document.getElementById("gnBtn").classList.remove("disabled");
   document.getElementById("sleepBtn").classList.remove("disabled");
 }
 
-async function sendRitual(type) {
-  if (!web3 || !selectedAccount) return showError("Wallet not connected!");
+// ✅ Ritual Execution
+async function ritual(type) {
+  if (!signer) return alert("Connect wallet dulu bro!");
 
   try {
-    alert(type + " Ritual executed! (dummy)");
-    // placeholder — nanti diganti contract call
-  } catch (err) {
-    showError("Error calling ritual: " + err.message);
+    const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+    let tx;
+
+    if (type === "GM") tx = await contract.gm();
+    if (type === "GN") tx = await contract.gn();
+    if (type === "Sleep") tx = await contract.sleep();
+
+    alert(type + " Ritual TX sent ✅\nTX Hash:\n" + tx.hash);
+
+  } catch (e) {
+    alert("Error: " + e.message);
   }
 }
 
-// click events
-document.getElementById("connectBtn").onclick = connectWallet;
-document.getElementById("gmBtn").onclick = () => sendRitual("GM");
-document.getElementById("gnBtn").onclick = () => sendRitual("GN");
-document.getElementById("sleepBtn").onclick = () => sendRitual("GoSleep");
+// ✅ Button Listeners
+document.getElementById("connectBtn").onclick = connect;
+document.getElementById("gmBtn").onclick = () => ritual("GM");
+document.getElementById("gnBtn").onclick = () => ritual("GN");
+document.getElementById("sleepBtn").onclick = () => ritual("Sleep");
+
 </script>
 
 </body>
