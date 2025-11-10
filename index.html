@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>GM Ritual On Base</title>
+<title>GM Ritual • On Base</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 <style>
@@ -11,33 +11,31 @@ body {
   padding: 0;
   background: linear-gradient(135deg, #ffffff, #b3e5fc);
   font-family: Arial, sans-serif;
+  color: #000;
   text-align: center;
 }
-
 button {
   padding: 14px;
-  margin: 8px;
-  width: 220px;
-  border-radius: 10px;
+  margin: 10px;
+  width: 230px;
+  border-radius: 12px;
   font-size: 18px;
   border: none;
   cursor: pointer;
 }
-
 #connectBtn {
-  background-color: #2962ff;
+  background: #2962ff;
   color: white;
 }
-
 .ritualBtn {
-  background-color: #009688;
+  background: #009688;
   color: white;
 }
 </style>
 
 <script src="https://cdn.jsdelivr.net/npm/ethers@6.7.1/dist/ethers.min.js"></script>
-</head>
 
+</head>
 <body>
 
 <h1>GM Ritual • On Base</h1>
@@ -50,8 +48,7 @@ button {
 <button class="ritualBtn" id="sleepBtn" disabled>GoSleep Ritual 😴</button>
 
 <script>
-
-const CONTRACT = "0x725Ccb4ddCB715f468b301395Dfd1b1efDb5308A";
+const CONTRACT_ADDRESS = "0x725Ccb4ddCB715f468b301395Dfd1b1efDb5308A";
 const ABI = [
   "function performRitual(string calldata newMessage) external payable",
   "function fee() public view returns(uint256)"
@@ -60,57 +57,58 @@ const ABI = [
 let provider = null;
 let signer = null;
 
-/* ✅ Detect provider including OKX, Bitget, Metamask Mobile */
-function getProvider() {
+// ✅ detect multi-wallet provider
+function detectProvider() {
   if (window.ethereum) return window.ethereum;
   if (window.okxwallet) return window.okxwallet;
+  if (window.bitget && window.bitget.ethereum) return window.bitget.ethereum;
   if (window.bitkeep && window.bitkeep.ethereum) return window.bitkeep.ethereum;
-  if (window.bitgetwallet) return window.bitgetwallet;
   return null;
 }
 
-/* ✅ Force Base network (8453) */
-async function switchToBase(p) {
+// ✅ ensure Base chain
+async function ensureBaseChain(injected) {
   try {
-    await p.request({
+    await injected.request({
       method: "wallet_switchEthereumChain",
       params: [{ chainId: "0x2105" }]
     });
   } catch (err) {
-    await p.request({
+    await injected.request({
       method: "wallet_addEthereumChain",
       params: [{
         chainId: "0x2105",
         chainName: "Base",
         rpcUrls: ["https://mainnet.base.org"],
-        nativeCurrency: { name: "Base ETH", symbol: "ETH", decimals: 18 },
+        nativeCurrency: { name: "Base Ether", symbol: "ETH", decimals: 18 },
         blockExplorerUrls: ["https://basescan.org"]
       }]
     });
   }
 }
 
-/* ✅ Connect wallet (mobile + desktop) */
+// ✅ connect wallet
 async function connectWallet() {
-  const p = getProvider();
-  if (!p) {
-    alert("Wallet not detected. Use Metamask/OKX/Bitget dApp browser.");
-    return;
-  }
-
   try {
-    const accounts = await p.request({ method: "eth_requestAccounts" });
+    const injected = detectProvider();
+    if (!injected) {
+      alert("❌ Wallet not detected — open in OKX/Bitget/Metamask dApp browser.");
+      return;
+    }
 
-    await switchToBase(p);
+    const accounts = await injected.request({ method: "eth_requestAccounts" });
 
-    provider = new ethers.BrowserProvider(p);
+    await ensureBaseChain(injected);
+
+    provider = new ethers.BrowserProvider(injected);
     signer = await provider.getSigner();
 
-    document.getElementById("connectBtn").innerText = "Connected ✅";
+    document.getElementById("connectBtn").innerText = accounts[0].slice(0, 6) + "..." + accounts[0].slice(-4);
+    document.getElementById("connectBtn").style.background = "#4CAF50";
 
     enableButtons();
-  } catch (e) {
-    console.error(e);
+  } catch (err) {
+    console.error(err);
     alert("Connection failed ❌");
   }
 }
@@ -121,37 +119,40 @@ function enableButtons() {
   document.getElementById("sleepBtn").disabled = false;
 }
 
-/* ✅ Ritual Transaction */
-async function perform(message) {
+// ✅ execute ritual with real transaction
+async function performRitual(msg) {
   try {
-    const p = getProvider();
-    await switchToBase(p);
+    const injected = detectProvider();
+    if (!injected) {
+      alert("Wallet not detected 😭");
+      return;
+    }
 
-    provider = new ethers.BrowserProvider(p);
+    provider = new ethers.BrowserProvider(injected);
     signer = await provider.getSigner();
 
-    const c = new ethers.Contract(CONTRACT, ABI, signer);
-    const fee = await c.fee();
+    await ensureBaseChain(injected);
 
-    const tx = await c.performRitual(message, { value: fee });
-    alert("Tx sent…");
+    const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+    const fee = await contract.fee();
 
+    const tx = await contract.performRitual(msg, { value: fee });
+
+    alert("Transaction sent ✅\nWaiting confirmation...");
     await tx.wait();
-    alert("Ritual complete ✅");
-
+    alert("Ritual Complete ✅");
   } catch (err) {
-    console.error(err);
-    alert("TX failed ❌");
+    console.log(err);
+    alert("Ritual Failed ❌");
   }
 }
 
-/* ✅ Button Actions */
+// ✅ bind buttons
 document.getElementById("connectBtn").onclick = connectWallet;
-document.getElementById("gmBtn").onclick = () => perform("GM ⚡");
-document.getElementById("gnBtn").onclick = () => perform("GN 🌙");
-document.getElementById("sleepBtn").onclick = () => perform("GoSleep 😴");
-
+document.getElementById("gmBtn").onclick = () => performRitual("GM ⚡");
+document.getElementById("gnBtn").onclick = () => performRitual("GN 🌙");
+document.getElementById("sleepBtn").onclick = () => performRitual("GoSleep 😴");
 </script>
 
 </body>
-  </html>
+</html>
