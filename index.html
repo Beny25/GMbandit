@@ -1,128 +1,101 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GM Ritual</title>
 
-<!-- Ethers.js UMD -->
+<title>GM Ritual Dashboard</title>
+
 <script src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-
-<!-- RainbowKit Connector UMD -->
-<script src="https://unpkg.com/@rainbow-me/rainbowkit-connector@1.0.0/dist/rkc.js"></script>
+<script src="https://unpkg.com/@walletconnect/web3modal@1.9.12/dist/index.min.js"></script>
 
 <style>
 body {
-  margin: 0;
-  background: #0f0f1b;
-  font-family: Arial, sans-serif;
-  color: white;
-  text-align: center;
-  padding: 40px 20px;
-}
-.button {
-  padding: 12px 20px;
-  background: #1e5eff;
-  border-radius: 10px;
-  color: #fff;
-  border: none;
-  font-size: 18px;
-  cursor: pointer;
-  margin: 10px;
-}
-.disconnect {
-  padding: 10px 16px;
-  background: red;
-  border-radius: 10px;
+  background:#0f0f1b;
+  margin:0;
+  padding:20px;
+  text-align:center;
   color:white;
-  display:none;
-  border:none;
-  font-size:16px;
-  margin-top:10px;
+  font-family:Arial, sans-serif;
 }
-.ritual-btn {
-  padding: 14px 24px;
-  border-radius: 12px;
+button {
+  padding:14px 20px;
+  border-radius:10px;
   border:none;
-  font-size:20px;
-  margin:10px;
   cursor:pointer;
+  margin:10px;
+  font-size:18px;
 }
-.gm {
-  background:#1d7bff;
-}
-.gn {
-  background:#8d36ff;
-}
-.sleep {
-  background:#333;
-}
+#connectBtn { background:#1E5EFF; color:white; }
+#disconnectBtn { background:red; display:none; }
+.ritual { padding:18px 26px; border-radius:12px; font-size:20px; margin:10px; }
+.gm{background:#1d7bff;}
+.gn{background:#8d36ff;}
+.sl{background:#333;}
 </style>
+
 </head>
 
 <body>
 
 <h1>GM Ritual Dashboard ⚡</h1>
 
-<button id="connectButton" class="button">Connect Wallet</button>
-<button id="disconnectButton" class="disconnect" onclick="disconnectWallet()">Disconnect</button>
+<button id="connectBtn">Connect Wallet</button>
+<button id="disconnectBtn">Disconnect</button>
 
-<div style="margin-top:50px;">
-  <button class="ritual-btn gm" onclick="runRitual('GM')">GM Ritual 🌞</button>
-  <button class="ritual-btn gn" onclick="runRitual('GN')">GN Ritual 🌙</button>
-  <button class="ritual-btn sleep" onclick="runRitual('SLEEP')">GoSleep Ritual 😴</button>
+<div style="margin-top:40px;">
+  <button onclick="runRitual('GM')" class="ritual gm">GM Ritual 🌞</button>
+  <button onclick="runRitual('GN')" class="ritual gn">GN Ritual 🌙</button>
+  <button onclick="runRitual('SLEEP')" class="ritual sl">GoSleep Ritual 😴</button>
 </div>
 
 <script>
-let provider = null;
-let signer = null;
-let signerAddress = null;
+let provider;
+let signer;
+let web3Modal = new window.Web3Modal.default({
+  cacheProvider: false,
+  providerOptions: {
+    walletconnect: {
+      package: window.WalletConnectProvider.default,
+      options: {
+        rpc: {
+          8453: "https://mainnet.base.org"
+        },
+      }
+    }
+  }
+});
 
 async function connectWallet() {
   try {
-    provider = await window.RKC.connect({
-      projectId: "dbb8f3da5c5b5f3ac97a6ac3cb75e359",
-      chains: [{
-        id: 8453,
-        name: "Base",
-        rpcUrls: ["https://mainnet.base.org"]
-      }]
-    });
+    const instance = await web3Modal.connect();
+    provider = new ethers.providers.Web3Provider(instance);
+    signer = provider.getSigner();
+    const addr = await signer.getAddress();
 
-    const ethersProvider = new ethers.providers.Web3Provider(provider);
-    signer = ethersProvider.getSigner();
-    signerAddress = await signer.getAddress();
-
-    document.getElementById("connectButton").innerText =
-      signerAddress.substring(0,6) + "..." + signerAddress.slice(-4);
-
-    document.getElementById("disconnectButton").style.display = "inline-block";
+    document.getElementById("connectBtn").textContent = addr.slice(0,6)+"..."+addr.slice(-4);
+    document.getElementById("disconnectBtn").style.display = "inline-block";
 
   } catch (e) {
-    alert("Connection failed: " + e.message);
+    alert("Failed: " + e.message);
   }
 }
 
 function disconnectWallet() {
-  window.RKC.disconnect();
+  if (web3Modal.clearCachedProvider) web3Modal.clearCachedProvider();
   signer = null;
-  signerAddress = null;
-
-  document.getElementById("connectButton").innerText = "Connect Wallet";
-  document.getElementById("disconnectButton").style.display = "none";
+  provider = null;
+  document.getElementById("connectBtn").textContent = "Connect Wallet";
+  document.getElementById("disconnectBtn").style.display = "none";
 }
 
-async function runRitual(type) {
-  if (!signer) {
-    alert("Connect wallet first!");
-    return;
-  }
-
-  // Dummy ritual (belum ke smart contract)
-  alert(type + " ritual executed!");
+function runRitual(msg) {
+  if (!signer) { alert("Connect wallet first!"); return; }
+  alert(msg + " ritual executed!");
 }
 
-document.getElementById("connectButton").onclick = connectWallet;
+document.getElementById("connectBtn").onclick = connectWallet;
+document.getElementById("disconnectBtn").onclick = disconnectWallet;
+
 </script>
 
 </body>
