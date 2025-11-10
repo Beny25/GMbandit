@@ -1,128 +1,290 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GM Ritual Dashboard ⚡</title>
-
-<script src="https://unpkg.com/@web3modal/html@2.7.1"></script>
-<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-
-<style>
-body {
-    background: #000;
-    color: white;
-    text-align: center;
-    font-family: Arial;
-    padding: 20px;
-}
-button {
-    width: 90%;
-    padding: 15px;
-    border-radius: 12px;
-    border: none;
-    margin: 10px;
-    font-size: 20px;
-    font-weight: bold;
-}
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>GM Ritual Dashboard</title>
+  <style>
+    :root{--bg:#0f1114;--card:#0d1116;--btn:#2b6df6;--muted:#9aa3b2;--accent:#7c3aed}
+    body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial;background:linear-gradient(180deg,#0b0c0f,#0f1114);color:#fff;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:28px}
+    h1{font-size:28px;margin:8px 0 24px;text-align:center}
+    .btn{display:inline-block;padding:14px 30px;border-radius:12px;background:var(--btn);color:#fff;text-decoration:none;font-weight:600;cursor:pointer;box-shadow:0 6px 18px rgba(43,109,246,.15)}
+    .btn.gray{background:#333}
+    .btn.secondary{background:var(--accent)}
+    .wrap{width:100%;max-width:520px;text-align:center}
+    .spacer{height:18px}
+    .status{margin-top:14px;color:var(--muted)}
+    .walletInfo{position:fixed;right:16px;top:16px;background:#062; padding:8px 12px;border-radius:10px; color:#eaffea;display:none}
+    .walletInfo.show{display:block}
+  </style>
 </head>
-
 <body>
+  <div class="wrap">
+    <h1>GM Ritual Dashboard ⚡</h1>
 
-<h1>GM Ritual Dashboard ⚡</h1>
+    <button id="connectBtn" class="btn">Connect Wallet</button>
+    <div class="spacer"></div>
 
-<!-- ✅ manual connect button -->
-<button id="connectBtn" style="background:#0a84ff;">Connect Wallet</button>
+    <div>
+      <button id="gmBtn" class="btn" style="width:220px;margin:8px" disabled>GM Ritual 🌞</button>
+      <button id="gnBtn" class="btn secondary" style="width:220px;margin:8px" disabled>GN Ritual 🌙</button>
+      <button id="sleepBtn" class="btn gray" style="width:220px;margin:8px" disabled>GoSleep 😴</button>
+    </div>
 
-<button id="gmBtn">GM Ritual 🌞</button>
-<button id="gnBtn" style="background:#aa55ff;">GN Ritual 🌙</button>
-<button id="sleepBtn" style="background:#444;">GoSleep Ritual 😴</button>
+    <div class="spacer"></div>
+    <a id="deployLink" href="/deploy" style="color:#67b0ff;text-decoration:underline">Deploy your contract 🚀</a>
 
-<p><a href="/deploy" style="color:skyblue;">Deploy your contract 🚀</a></p>
+    <p class="status" id="statusText">Not connected</p>
+  </div>
 
-<script>
+  <div id="walletInfo" class="walletInfo">0x...</div>
 
-// ———————————————————————————————
-// 1. CONFIG WEB3MODAL (NEW VERSION)
-// ———————————————————————————————
+  <!-- libs -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js?v=1"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js?v=1"></script>
 
-const projectId = "e9ab1ec848b29cf2e7b9f4d2a5f92f73"; // demo id
-let modal; // supaya bisa diakses global
+  <script>
+  (function(){
+    // --- CONFIG: ganti sesuai kebutuhan ---
+    const BASE_CHAIN_ID_HEX = '0x2135'; // 8453 in hex
+    const BASE_CHAIN_ID_DEC = 8453;
+    const BASE_RPC = 'https://mainnet.base.org'; // public base RPC
+    // placeholder contract (ganti CONTRACT_ADDRESS dan CONTRACT_ABI)
+    const CONTRACT_ADDRESS = '0x0000000000000000000000000000000000000000';
+    const CONTRACT_ABI = []; // isi ABI disini
 
-const metadata = {
-    name: "GMbandit",
-    description: "GM Ritual Dapp",
-    url: "https://gm-bandit.vercel.app",
-    icons: ["https://gm-bandit.vercel.app/icon.png"]
-};
+    // --- state ---
+    let provider = null;         // ethers provider wrapper (Web3Provider)
+    let rawProvider = null;      // window.ethereum atau WalletConnectProvider
+    let signer = null;
+    let account = null;
 
-const chains = [{
-    chainId: 8453,
-    name: "Base",
-    currency: "ETH",
-    explorerUrl: "https://basescan.org",
-    rpcUrl: "https://mainnet.base.org"
-}];
+    const connectBtn = document.getElementById('connectBtn');
+    const statusText = document.getElementById('statusText');
+    const walletInfo = document.getElementById('walletInfo');
+    const gmBtn = document.getElementById('gmBtn');
+    const gnBtn = document.getElementById('gnBtn');
+    const sleepBtn = document.getElementById('sleepBtn');
 
-modal = new Web3Modal({ projectId, chains, metadata });
+    function setStatus(t){
+      statusText.innerText = t;
+      console.log('[STATUS]', t);
+    }
 
-let providerInstance = null;
+    function showWallet(addr){
+      walletInfo.innerText = addr;
+      walletInfo.classList.add('show');
+    }
 
-// ———————————————————————————————
-// 2. CONNECT FUNCTION (manual button)
-// ———————————————————————————————
+    function enableRitualButtons(enable){
+      gmBtn.disabled = !enable;
+      gnBtn.disabled = !enable;
+      sleepBtn.disabled = !enable;
+      if(enable) {
+        gmBtn.style.opacity = '1';
+        gnBtn.style.opacity = '1';
+        sleepBtn.style.opacity = '1';
+      } else {
+        gmBtn.style.opacity = '.6';
+        gnBtn.style.opacity = '.6';
+        sleepBtn.style.opacity = '.6';
+      }
+    }
 
-async function connectWallet() {
-    try {
-        await modal.open(); // launch modal wallet
+    async function trySwitchToBase(){
+      try {
+        const chainId = await rawProvider.request({method:'eth_chainId'});
+        console.log('current chainId', chainId);
+        if(chainId !== BASE_CHAIN_ID_HEX){
+          // try to switch
+          try {
+            await rawProvider.request({
+              method: 'wallet_switchEthereumChain',
+              params: [{ chainId: BASE_CHAIN_ID_HEX }]
+            });
+            setStatus('Switched to Base network');
+            return true;
+          } catch (switchErr){
+            // if chain not added, try add
+            console.warn('switch failed', switchErr);
+            try {
+              await rawProvider.request({
+                method: 'wallet_addEthereumChain',
+                params: [{
+                  chainId: BASE_CHAIN_ID_HEX,
+                  chainName: 'Base Mainnet',
+                  nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+                  rpcUrls: [BASE_RPC],
+                  blockExplorerUrls: ['https://basescan.org']
+                }]
+              });
+              setStatus('Added Base network, please confirm switch in wallet');
+              return true;
+            } catch (addErr){
+              console.error('add chain failed', addErr);
+              alert('Please switch your wallet network to Base (8453) manually.');
+              return false;
+            }
+          }
+        } else {
+          setStatus('On Base network');
+          return true;
+        }
+      } catch(e){
+        console.error('chain check failed', e);
+        alert('Unable to check/switch chain. See console.');
+        return false;
+      }
+    }
 
-        const walletProvider = await modal.getWalletProvider();
+    async function enableWalletConnectFallback(){
+      // fallback: use WalletConnectProvider (v1) from CDN
+      const WalletConnectProvider = window.WalletConnectProvider.default;
+      if(!WalletConnectProvider){
+        throw new Error('WalletConnectProvider not available');
+      }
+      const wcProvider = new WalletConnectProvider({
+        rpc: { [BASE_CHAIN_ID_DEC]: BASE_RPC },
+        chainId: BASE_CHAIN_ID_DEC,
+        qrcode: true
+      });
+      // enable will open QR / deep link
+      await wcProvider.enable();
+      return wcProvider;
+    }
 
-        if (!walletProvider) {
-            alert("No wallet selected");
-            return;
+    async function connect(){
+      setStatus('Connecting...');
+      try {
+        if(window.ethereum){
+          rawProvider = window.ethereum;
+          provider = new ethers.providers.Web3Provider(rawProvider, 'any');
+          await rawProvider.request({ method: 'eth_requestAccounts' });
+        } else {
+          // fallback to WalletConnect provider
+          rawProvider = await enableWalletConnectFallback();
+          provider = new ethers.providers.Web3Provider(rawProvider, 'any');
         }
 
-        providerInstance = new ethers.providers.Web3Provider(walletProvider);
-        const signer = providerInstance.getSigner();
-        const addr = await signer.getAddress();
+        signer = provider.getSigner();
+        account = await signer.getAddress();
+        showWallet(account);
+        setStatus('Connected: ' + account);
+        connectBtn.innerText = 'Disconnect';
+        connectBtn.dataset.connected = '1';
 
-        // update text
-        document.getElementById("connectBtn").innerHTML = "✅ " + addr.substring(0,6) + "..." + addr.substring(addr.length-4);
+        // events
+        if(rawProvider.on){
+          rawProvider.on('accountsChanged', (accs)=> {
+            console.log('accountsChanged', accs);
+            if(accs && accs.length) {
+              account = accs[0];
+              showWallet(account);
+              setStatus('Account changed: '+account);
+            } else {
+              disconnect();
+            }
+          });
+          rawProvider.on('chainChanged', (chainId) => {
+            console.log('chainChanged', chainId);
+            setStatus('Chain changed: ' + chainId);
+            // if not base, disable
+            if(chainId === BASE_CHAIN_ID_HEX) enableRitualButtons(true); else enableRitualButtons(false);
+          });
+          rawProvider.on('disconnect', (code, reason) => {
+            console.log('disconnect', code, reason);
+            disconnect();
+          });
+        }
 
-    } catch (err) {
-        alert("Connect error: " + err.message);
+        // make sure on Base
+        const ok = await trySwitchToBase();
+        if(ok){
+          enableRitualButtons(true);
+        } else {
+          enableRitualButtons(false);
+        }
+      } catch(err){
+        console.error('connect failed', err);
+        alert('Connection failed: ' + (err.message || err));
+        setStatus('Not connected');
+      }
     }
-}
 
-document.getElementById("connectBtn").onclick = connectWallet;
+    async function disconnect(){
+      try {
+        if(rawProvider && rawProvider.disconnect && typeof rawProvider.disconnect === 'function'){
+          await rawProvider.disconnect();
+        }
+      } catch(e){ console.warn('provider disconnect err', e); }
+      provider = null; rawProvider = null; signer = null; account = null;
+      connectBtn.innerText = 'Connect Wallet';
+      connectBtn.dataset.connected = '';
+      showWallet('0x...');
+      setStatus('Not connected');
+      enableRitualButtons(false);
+    }
 
-
-// ———————————————————————————————
-// 3. RITUAL FUNCTIONS
-// ———————————————————————————————
-
-async function performRitual(type) {
-    if (!providerInstance) {
-        alert("Please connect wallet first!");
+    connectBtn.addEventListener('click', async ()=>{
+      if(connectBtn.dataset.connected === '1'){
+        await disconnect();
         return;
-    }
+      }
+      await connect();
+    });
 
-    const network = await providerInstance.getNetwork();
-    if (network.chainId !== 8453) {
-        alert("Please switch to Base Mainnet first!");
+    // Demo ritual functions (replace with actual contract calls)
+    async function performRitual(type){
+      if(!signer) return alert('Connect wallet first!');
+      // sanity check chain
+      try {
+        const chain = await rawProvider.request({ method: 'eth_chainId' });
+        if(chain !== BASE_CHAIN_ID_HEX) {
+          alert('Please switch to Base network (8453) and try again.');
+          return;
+        }
+      } catch(e){
+        console.error('chain check error', e);
+      }
+      // example: call contract function (replace with actual ABI & address)
+      if(!CONTRACT_ABI.length || CONTRACT_ADDRESS === '0x0000000000000000000000000000000000000000'){
+        // fallback UI-only demo (no on-chain)
+        alert('Ritual "'+type+'" triggered (demo mode). Replace CONTRACT_ADDRESS & ABI to enable real transaction.');
+        setStatus(`Ritual ${type} (demo)`);
         return;
+      }
+
+      try {
+        const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+        // switch by type: call appropriate function (example names)
+        let tx;
+        if(type === 'GM') tx = await contract.gm();
+        if(type === 'GN') tx = await contract.gn();
+        if(type === 'SLEEP') tx = await contract.goSleep();
+        setStatus('Tx sent, waiting confirmation...');
+        await tx.wait();
+        setStatus('Ritual '+type+' confirmed!');
+        alert('Ritual '+type+' confirmed on-chain!');
+      } catch(err){
+        console.error('ritual error', err);
+        alert('Error ' + (err.error?.message || err.message || err));
+      }
     }
 
-    alert(type + " ritual executed (simulation)");
-}
+    gmBtn.addEventListener('click', ()=>performRitual('GM'));
+    gnBtn.addEventListener('click', ()=>performRitual('GN'));
+    sleepBtn.addEventListener('click', ()=>performRitual('SLEEP'));
 
-document.getElementById("gmBtn").onclick = () => performRitual("GM");
-document.getElementById("gnBtn").onclick = () => performRitual("GN");
-document.getElementById("sleepBtn").onclick = () => performRitual("GoSleep");
+    // initial UI
+    enableRitualButtons(false);
+    showWallet('0x...');
+    setStatus('Not connected');
 
-</script>
+    // small helper: try auto-connect if user previously used WC (optional)
+    // (commented out to avoid unexpected popups)
+    // window.addEventListener('load', () => { /* optionally try connect */ });
 
+  })();
+  </script>
 </body>
 </html>
