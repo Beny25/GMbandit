@@ -1,158 +1,114 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<title>GM Ritual • On Base</title>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GMbandit Rituals</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(to bottom, #0070f3, #ffffff);
+      color: #333;
+      text-align: center;
+    }
 
-<style>
-body {
-  margin: 0;
-  padding: 0;
-  background: linear-gradient(135deg, #ffffff, #b3e5fc);
-  font-family: Arial, sans-serif;
-  color: #000;
-  text-align: center;
-}
-button {
-  padding: 14px;
-  margin: 10px;
-  width: 230px;
-  border-radius: 12px;
-  font-size: 18px;
-  border: none;
-  cursor: pointer;
-}
-#connectBtn {
-  background: #2962ff;
-  color: white;
-}
-.ritualBtn {
-  background: #009688;
-  color: white;
-}
-</style>
+    header img {
+      width: 100%;
+      max-width: 720px;
+      margin-top: 20px;
+    }
 
-<script src="https://cdn.jsdelivr.net/npm/ethers@6.7.1/dist/ethers.min.js"></script>
+    .container {
+      padding: 20px;
+    }
 
+    .btn {
+      display: block;
+      margin: 15px auto;
+      padding: 12px 24px;
+      font-size: 16px;
+      border: none;
+      border-radius: 6px;
+      background-color: #1a73e8;
+      color: white;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .btn:hover {
+      background-color: #125acb;
+    }
+
+    .deploy-link {
+      margin-top: 30px;
+      display: inline-block;
+      text-decoration: none;
+      color: #1a73e8;
+      font-weight: bold;
+    }
+
+    .wallet-btn {
+      position: absolute;
+      top: 15px;
+      right: 20px;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 6px;
+      background-color: #fff;
+      color: #0070f3;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+    }
+
+    .wallet-btn:hover {
+      background-color: #f0f0f0;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.8.1/dist/ethers.min.js"></script>
 </head>
 <body>
+  <button class="wallet-btn" id="connectButton">Connect Wallet</button>
 
-<h1>GM Ritual • On Base</h1>
-<h2>Connect → Choose Ritual → Confirm TX</h2>
+  <header>
+    <img src="assets/gmbandit.jpg" alt="GMbandit Banner" />
+  </header>
+  <div class="container">
+    <h1>⏹ GMbandit Rituals on Base</h1>
 
-<button id="connectBtn">Connect Wallet</button>
-<br>
-<button class="ritualBtn" id="gmBtn" disabled>GM Ritual ⚡</button>
-<button class="ritualBtn" id="gnBtn" disabled>GN Ritual 🌙</button>
-<button class="ritualBtn" id="sleepBtn" disabled>GoSleep Ritual 😴</button>
+    <button class="btn">GM ⛅</button>
+    <button class="btn">GN 🌙</button>
+    <button class="btn">Go Sleep 😴</button>
 
-<script>
-const CONTRACT_ADDRESS = "0x725Ccb4ddCB715f468b301395Dfd1b1efDb5308A";
-const ABI = [
-  "function performRitual(string calldata newMessage) external payable",
-  "function fee() public view returns(uint256)"
-];
+    <a href="/deploy" class="deploy-link">🚀 Deploy Your Own Ritual</a>
+  </div>
 
-let provider = null;
-let signer = null;
+  <script>
+    const connectBtn = document.getElementById("connectButton");
+    let provider, signer;
 
-// ✅ detect multi-wallet provider
-function detectProvider() {
-  if (window.ethereum) return window.ethereum;
-  if (window.okxwallet) return window.okxwallet;
-  if (window.bitget && window.bitget.ethereum) return window.bitget.ethereum;
-  if (window.bitkeep && window.bitkeep.ethereum) return window.bitkeep.ethereum;
-  return null;
-}
+    async function connectWallet() {
+      if (!window.ethereum) {
+        alert("Please install MetaMask!");
+        return;
+      }
 
-// ✅ ensure Base chain
-async function ensureBaseChain(injected) {
-  try {
-    await injected.request({
-      method: "wallet_switchEthereumChain",
-      params: [{ chainId: "0x2105" }]
-    });
-  } catch (err) {
-    await injected.request({
-      method: "wallet_addEthereumChain",
-      params: [{
-        chainId: "0x2105",
-        chainName: "Base",
-        rpcUrls: ["https://mainnet.base.org"],
-        nativeCurrency: { name: "Base Ether", symbol: "ETH", decimals: 18 },
-        blockExplorerUrls: ["https://basescan.org"]
-      }]
-    });
-  }
-}
-
-// ✅ connect wallet
-async function connectWallet() {
-  try {
-    const injected = detectProvider();
-    if (!injected) {
-      alert("❌ Wallet not detected — open in OKX/Bitget/Metamask dApp browser.");
-      return;
+      provider = new ethers.BrowserProvider(window.ethereum);
+      const accounts = await provider.send("eth_requestAccounts", []);
+      signer = await provider.getSigner();
+      const address = await signer.getAddress();
+      const short = address.slice(0, 6) + "..." + address.slice(-4);
+      connectBtn.textContent = short;
+      connectBtn.onclick = disconnectWallet;
     }
 
-    const accounts = await injected.request({ method: "eth_requestAccounts" });
-
-    await ensureBaseChain(injected);
-
-    provider = new ethers.BrowserProvider(injected);
-    signer = await provider.getSigner();
-
-    document.getElementById("connectBtn").innerText = accounts[0].slice(0, 6) + "..." + accounts[0].slice(-4);
-    document.getElementById("connectBtn").style.background = "#4CAF50";
-
-    enableButtons();
-  } catch (err) {
-    console.error(err);
-    alert("Connection failed ❌");
-  }
-}
-
-function enableButtons() {
-  document.getElementById("gmBtn").disabled = false;
-  document.getElementById("gnBtn").disabled = false;
-  document.getElementById("sleepBtn").disabled = false;
-}
-
-// ✅ execute ritual with real transaction
-async function performRitual(msg) {
-  try {
-    const injected = detectProvider();
-    if (!injected) {
-      alert("Wallet not detected 😭");
-      return;
+    function disconnectWallet() {
+      connectBtn.textContent = "Connect Wallet";
+      connectBtn.onclick = connectWallet;
     }
 
-    provider = new ethers.BrowserProvider(injected);
-    signer = await provider.getSigner();
-
-    await ensureBaseChain(injected);
-
-    const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
-    const fee = await contract.fee();
-
-    const tx = await contract.performRitual(msg, { value: fee });
-
-    alert("Transaction sent ✅\nWaiting confirmation...");
-    await tx.wait();
-    alert("Ritual Complete ✅");
-  } catch (err) {
-    console.log(err);
-    alert("Ritual Failed ❌");
-  }
-}
-
-// ✅ bind buttons
-document.getElementById("connectBtn").onclick = connectWallet;
-document.getElementById("gmBtn").onclick = () => performRitual("GM ⚡");
-document.getElementById("gnBtn").onclick = () => performRitual("GN 🌙");
-document.getElementById("sleepBtn").onclick = () => performRitual("GoSleep 😴");
-</script>
-
+    connectBtn.onclick = connectWallet;
+  </script>
 </body>
-</html>
+      </html>
