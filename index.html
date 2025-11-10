@@ -3,112 +3,193 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GMbandit Rituals</title>
+  <title>GMbandit — Onchain Rituals on Base</title>
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&display=swap" rel="stylesheet">
+
+  <!-- Ethers + Wallet SDK -->
+  <script src="https://unpkg.com/@coinbase/wallet-sdk/dist/wallet-sdk.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ethers/dist/ethers.min.js"></script>
+
   <style>
     body {
       margin: 0;
-      font-family: 'Segoe UI', sans-serif;
-      background: linear-gradient(to bottom, #0070f3, #ffffff);
-      color: #333;
-      text-align: center;
-    }
-
-    header img {
-      width: 100%;
-      max-width: 720px;
-      margin-top: 20px;
-    }
-
-    .container {
-      padding: 20px;
-    }
-
-    .btn {
-      display: block;
-      margin: 15px auto;
-      padding: 12px 24px;
-      font-size: 16px;
-      border: none;
-      border-radius: 6px;
-      background-color: #1a73e8;
+      padding: 0;
+      font-family: "Space Grotesk", sans-serif;
+      background: linear-gradient(135deg, #0044ff, #88bbff);
       color: white;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    #header {
+      text-align: center;
+      padding: 60px 20px 20px;
+      font-size: 32px;
+      font-weight: 700;
+      text-shadow: 0 0 12px rgba(255,255,255,0.4);
+    }
+
+    #subtitle {
+      text-align: center;
+      margin-top: 5px;
+      font-size: 16px;
+      opacity: 0.8;
+    }
+
+    #wallet-section {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+    }
+
+    #connectBtn, #disconnectBtn {
+      padding: 10px 18px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.15);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.4);
       cursor: pointer;
+      font-size: 14px;
+      backdrop-filter: blur(8px);
       transition: 0.2s;
     }
 
-    .btn:hover {
-      background-color: #125acb;
+    #connectBtn:hover, #disconnectBtn:hover {
+      background: rgba(255,255,255,0.3);
     }
 
-    .deploy-link {
-      margin-top: 30px;
-      display: inline-block;
-      text-decoration: none;
-      color: #1a73e8;
-      font-weight: bold;
+    #walletMenu {
+      background: rgba(0,0,0,0.4);
+      padding: 10px;
+      border-radius: 10px;
+      margin-top: 10px;
+      color: white;
+      display: none;
+      text-align: center;
     }
 
-    .wallet-btn {
-      position: absolute;
-      top: 15px;
-      right: 20px;
-      padding: 10px 16px;
+    #walletAddress {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 14px;
+      opacity: 0.8;
+    }
+
+    #ritual-buttons {
+      margin-top: 60px;
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+      flex-wrap: wrap;
+    }
+
+    .ritual-btn {
+      padding: 15px 30px;
+      font-size: 20px;
+      border-radius: 16px;
       border: none;
-      border-radius: 6px;
-      background-color: #fff;
-      color: #0070f3;
-      font-weight: bold;
       cursor: pointer;
-      box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+      color: white;
+      font-weight: 600;
+      background: rgba(0,0,0,0.25);
+      border: 1px solid rgba(255,255,255,0.2);
+      backdrop-filter: blur(6px);
+      transition: 0.25s;
     }
 
-    .wallet-btn:hover {
-      background-color: #f0f0f0;
+    .ritual-btn:hover {
+      transform: scale(1.05);
+      background: rgba(0,0,0,0.45);
     }
   </style>
-  <script src="https://cdn.jsdelivr.net/npm/ethers@6.8.1/dist/ethers.min.js"></script>
 </head>
+
 <body>
-  <button class="wallet-btn" id="connectButton">Connect Wallet</button>
 
-  <header>
-    <img src="assets/gmbandit.jpg" alt="GMbandit Banner" />
-  </header>
-  <div class="container">
-    <h1>⏹ GMbandit Rituals on Base</h1>
+  <div id="wallet-section">
+    <button id="connectBtn">Connect Wallet</button>
+    <div id="walletMenu">
+      <span id="walletAddress"></span>
+      <button id="disconnectBtn">Disconnect</button>
+    </div>
+  </div>
 
-    <button class="btn">GM ⛅</button>
-    <button class="btn">GN 🌙</button>
-    <button class="btn">Go Sleep 😴</button>
+  <div id="header">⏹ GMbandit Rituals</div>
+  <div id="subtitle">One GM, One GN, One Sleep — Onchain forever.</div>
 
-    <a href="/deploy" class="deploy-link">🚀 Deploy Your Own Ritual</a>
+  <div id="ritual-buttons">
+    <button class="ritual-btn" onclick="doRitual('gm')">GM ☀️</button>
+    <button class="ritual-btn" onclick="doRitual('gn')">GN 🌙</button>
+    <button class="ritual-btn" onclick="doRitual('sleep')">GoSleep 😴</button>
   </div>
 
   <script>
-    const connectBtn = document.getElementById("connectButton");
-    let provider, signer;
+    const CONTRACT_ADDRESS = "0x725Ccb4ddCB715f468b301395Dfd1b1efDb5308A";
+    const ABI = [
+      "function gm() payable",
+      "function gn() payable",
+      "function gosleep() payable"
+    ];
 
     async function connectWallet() {
-      if (!window.ethereum) {
-        alert("Please install MetaMask!");
-        return;
+      try {
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+
+        const accounts = await provider.send("eth_requestAccounts", []);
+        const account = accounts[0];
+
+        // Switch to Base
+        try {
+          await provider.send("wallet_switchEthereumChain", [{ chainId: "0x2105" }]);
+        } catch (err) {
+          if (err.code === 4902) {
+            await provider.send("wallet_addEthereumChain", [{
+              chainId: "0x2105",
+              chainName: "Base",
+              rpcUrls: ["https://mainnet.base.org"],
+              blockExplorerUrls: ["https://basescan.org"]
+            }]);
+          }
+        }
+
+        document.getElementById("connectBtn").style.display = "none";
+        document.getElementById("walletMenu").style.display = "block";
+        document.getElementById("walletAddress").innerText =
+          account.slice(0, 6) + "..." + account.slice(-4);
+
+      } catch (err) {
+        alert("Wallet connection failed!");
       }
-
-      provider = new ethers.BrowserProvider(window.ethereum);
-      const accounts = await provider.send("eth_requestAccounts", []);
-      signer = await provider.getSigner();
-      const address = await signer.getAddress();
-      const short = address.slice(0, 6) + "..." + address.slice(-4);
-      connectBtn.textContent = short;
-      connectBtn.onclick = disconnectWallet;
     }
 
-    function disconnectWallet() {
-      connectBtn.textContent = "Connect Wallet";
-      connectBtn.onclick = connectWallet;
+    async function doRitual(type) {
+      try {
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const signer = provider.getSigner();
+        const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+
+        const fee = ethers.utils.parseEther("0.00000033");
+
+        let tx;
+        if (type === "gm") tx = await contract.gm({ value: fee });
+        if (type === "gn") tx = await contract.gn({ value: fee });
+        if (type === "sleep") tx = await contract.gosleep({ value: fee });
+
+        alert("TX sent: " + tx.hash);
+
+      } catch (err) {
+        alert("Transaction failed: " + err.message);
+      }
     }
 
-    connectBtn.onclick = connectWallet;
+    document.getElementById("connectBtn").addEventListener("click", connectWallet);
+    document.getElementById("disconnectBtn").addEventListener("click", () => {
+      document.getElementById("connectBtn").style.display = "block";
+      document.getElementById("walletMenu").style.display = "none";
+    });
   </script>
+
 </body>
-      </html>
+</html>
