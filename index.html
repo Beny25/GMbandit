@@ -1,195 +1,141 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GMbandit — Onchain Rituals on Base</title>
+<meta charset="UTF-8">
+<title>GMbandit Rituals</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&display=swap" rel="stylesheet">
+<!-- Background Style -->
+<style>
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: linear-gradient(135deg, #0033cc, #66aaff);
+  color: white;
+  text-align: center;
+}
 
-  <!-- Ethers + Wallet SDK -->
-  <script src="https://unpkg.com/@coinbase/wallet-sdk/dist/wallet-sdk.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/ethers/dist/ethers.min.js"></script>
+header {
+  padding: 20px;
+}
 
-  <style>
-    body {
-      margin: 0;
-      padding: 0;
-      font-family: "Space Grotesk", sans-serif;
-      background: linear-gradient(135deg, #0044ff, #88bbff);
-      color: white;
-      min-height: 100vh;
-      overflow-x: hidden;
-    }
+button {
+  padding: 12px 20px;
+  margin: 10px;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  cursor: pointer;
+}
 
-    #header {
-      text-align: center;
-      padding: 60px 20px 20px;
-      font-size: 32px;
-      font-weight: 700;
-      text-shadow: 0 0 12px rgba(255,255,255,0.4);
-    }
+#connect-btn {
+  background: rgba(255,255,255,0.2);
+  color: white;
+  border: 1px solid white;
+}
 
-    #subtitle {
-      text-align: center;
-      margin-top: 5px;
-      font-size: 16px;
-      opacity: 0.8;
-    }
+.action-btn {
+  background: #ffffff;
+  color: #0033cc;
+  font-weight: bold;
+}
+</style>
 
-    #wallet-section {
-      position: absolute;
-      top: 20px;
-      right: 20px;
-    }
+<!-- ethers.js ✅ -->
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
 
-    #connectBtn, #disconnectBtn {
-      padding: 10px 18px;
-      border-radius: 12px;
-      background: rgba(255,255,255,0.15);
-      color: white;
-      border: 1px solid rgba(255,255,255,0.4);
-      cursor: pointer;
-      font-size: 14px;
-      backdrop-filter: blur(8px);
-      transition: 0.2s;
-    }
+<!-- Web3Modal + WalletConnect ✅ -->
+<script src="https://unpkg.com/@walletconnect/web3modal@1.9.8/dist/index.umd.min.js"></script>
+<script src="https://unpkg.com/@walletconnect/web3-provider@1.7.8/dist/umd/index.min.js"></script>
 
-    #connectBtn:hover, #disconnectBtn:hover {
-      background: rgba(255,255,255,0.3);
-    }
-
-    #walletMenu {
-      background: rgba(0,0,0,0.4);
-      padding: 10px;
-      border-radius: 10px;
-      margin-top: 10px;
-      color: white;
-      display: none;
-      text-align: center;
-    }
-
-    #walletAddress {
-      display: block;
-      margin-bottom: 6px;
-      font-size: 14px;
-      opacity: 0.8;
-    }
-
-    #ritual-buttons {
-      margin-top: 60px;
-      display: flex;
-      justify-content: center;
-      gap: 30px;
-      flex-wrap: wrap;
-    }
-
-    .ritual-btn {
-      padding: 15px 30px;
-      font-size: 20px;
-      border-radius: 16px;
-      border: none;
-      cursor: pointer;
-      color: white;
-      font-weight: 600;
-      background: rgba(0,0,0,0.25);
-      border: 1px solid rgba(255,255,255,0.2);
-      backdrop-filter: blur(6px);
-      transition: 0.25s;
-    }
-
-    .ritual-btn:hover {
-      transform: scale(1.05);
-      background: rgba(0,0,0,0.45);
-    }
-  </style>
 </head>
-
 <body>
 
-  <div id="wallet-section">
-    <button id="connectBtn">Connect Wallet</button>
-    <div id="walletMenu">
-      <span id="walletAddress"></span>
-      <button id="disconnectBtn">Disconnect</button>
-    </div>
-  </div>
+<header>
+  <h1>🟦 GMbandit Rituals</h1>
+  <button id="connect-btn" onclick="connectWallet()">Connect Wallet</button>
+</header>
 
-  <div id="header">⏹ GMbandit Rituals</div>
-  <div id="subtitle">One GM, One GN, One Sleep — Onchain forever.</div>
+<p>One GM, One GN, One Sleep — Onchain forever.</p>
 
-  <div id="ritual-buttons">
-    <button class="ritual-btn" onclick="doRitual('gm')">GM ☀️</button>
-    <button class="ritual-btn" onclick="doRitual('gn')">GN 🌙</button>
-    <button class="ritual-btn" onclick="doRitual('sleep')">GoSleep 😴</button>
-  </div>
+<button class="action-btn" onclick="ritual('gm')">GM Ritual ⚡</button>
+<button class="action-btn" onclick="ritual('gn')">GN Ritual 🌙</button>
+<button class="action-btn" onclick="ritual('gosleep')">Sleep Ritual 😴</button>
 
-  <script>
-    const CONTRACT_ADDRESS = "0x725Ccb4ddCB715f468b301395Dfd1b1efDb5308A";
-    const ABI = [
-      "function gm() payable",
-      "function gn() payable",
-      "function gosleep() payable"
-    ];
+<script>
+// ✅ Contract Address
+const CONTRACT_ADDRESS = "0x725Ccb4ddCB715f468b301395Dfd1b1efDb5308A"; // ganti jika perlu
 
-    async function connectWallet() {
-      try {
-        const provider = new ethers.providers.Web3Provider(window.ethereum);
+// ✅ ABI (versi simple)
+const ABI = [
+  "function gm() external payable",
+  "function gn() external payable",
+  "function gosleep() external payable"
+];
 
-        const accounts = await provider.send("eth_requestAccounts", []);
-        const account = accounts[0];
-
-        // Switch to Base
-        try {
-          await provider.send("wallet_switchEthereumChain", [{ chainId: "0x2105" }]);
-        } catch (err) {
-          if (err.code === 4902) {
-            await provider.send("wallet_addEthereumChain", [{
-              chainId: "0x2105",
-              chainName: "Base",
-              rpcUrls: ["https://mainnet.base.org"],
-              blockExplorerUrls: ["https://basescan.org"]
-            }]);
-          }
-        }
-
-        document.getElementById("connectBtn").style.display = "none";
-        document.getElementById("walletMenu").style.display = "block";
-        document.getElementById("walletAddress").innerText =
-          account.slice(0, 6) + "..." + account.slice(-4);
-
-      } catch (err) {
-        alert("Wallet connection failed!");
+// ✅ WalletConnect Configuration
+const providerOptions = {
+  walletconnect: {
+    package: window.WalletConnectProvider.default,
+    options: {
+      rpc: {
+        8453: "https://mainnet.base.org"
       }
     }
+  }
+};
 
-    async function doRitual(type) {
-      try {
-        const provider = new ethers.providers.Web3Provider(window.ethereum);
-        const signer = provider.getSigner();
-        const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+// ✅ Web3Modal Init
+const web3Modal = new window.Web3Modal.default({
+  cacheProvider: false,
+  providerOptions,
+  theme: "dark"
+});
 
-        const fee = ethers.utils.parseEther("0.00000033");
+let provider;
+let signer;
 
-        let tx;
-        if (type === "gm") tx = await contract.gm({ value: fee });
-        if (type === "gn") tx = await contract.gn({ value: fee });
-        if (type === "sleep") tx = await contract.gosleep({ value: fee });
+// ✅ Connect Wallet
+async function connectWallet() {
+  try {
+    const instance = await web3Modal.connect();
+    provider = new ethers.providers.Web3Provider(instance);
+    signer = provider.getSigner();
 
-        alert("TX sent: " + tx.hash);
+    const addr = await signer.getAddress();
+    document.getElementById("connect-btn").innerText =
+      addr.substring(0, 6) + "..." + addr.slice(-4);
 
-      } catch (err) {
-        alert("Transaction failed: " + err.message);
-      }
-    }
+  } catch (err) {
+    alert("Wallet connection failed!");
+  }
+}
 
-    document.getElementById("connectBtn").addEventListener("click", connectWallet);
-    document.getElementById("disconnectBtn").addEventListener("click", () => {
-      document.getElementById("connectBtn").style.display = "block";
-      document.getElementById("walletMenu").style.display = "none";
-    });
-  </script>
+// ✅ Ritual Interaction
+async function ritual(type) {
+  if (!signer) return alert("Connect wallet first ✅");
+
+  try {
+    const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+
+    let tx;
+    const ritualFee = ethers.utils.parseEther("0.00000033");
+
+    if (type === "gm") tx = await contract.gm({ value: ritualFee });
+    if (type === "gn") tx = await contract.gn({ value: ritualFee });
+    if (type === "gosleep") tx = await contract.gosleep({ value: ritualFee });
+
+    alert("Transaction sent! Hash: " + tx.hash);
+
+    await tx.wait();
+    alert("✅ Ritual success!");
+
+  } catch (err) {
+    alert("Transaction failed: " + err.message);
+  }
+}
+
+</script>
 
 </body>
 </html>
