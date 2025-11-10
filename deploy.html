@@ -1,83 +1,121 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Deploy GMbanditV2</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Deploy GMbanditV2</title>
 
-<script src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-<script src="https://unpkg.com/@walletconnect/web3modal@1.9.12/dist/index.min.js"></script>
+    <script src="https://unpkg.com/@walletconnect/modal@2.5.2/dist/index.umd.js"></script>
 
-<style>
-body {background:#0f0f1b;color:white;font-family:Arial;text-align:center;padding:20px;}
-.box {background:#1a1a2e;padding:20px;border-radius:10px;max-width:400px;margin:auto;}
-input {width:90%;padding:14px;font-size:16px;border-radius:10px;border:none;margin-bottom:15px;}
-button {padding:14px 20px;border-radius:10px;margin:10px;border:none;font-size:18px;cursor:pointer;}
-#connectBtn{background:#1E5EFF;color:white;}
-#disconnectBtn{background:red;display:none;}
-.deploy{background:#327cff;width:90%;}
-.back{color:#8ab4ff;text-decoration:none;}
-</style>
-
+    <style>
+        body {
+            background: #0d0d16;
+            margin: 0;
+            font-family: Arial;
+            text-align: center;
+            color: #fff;
+            padding: 30px;
+        }
+        button {
+            padding: 14px 22px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            font-size: 17px;
+            margin-top: 20px;
+            background: #0056ff;
+            color: #fff;
+        }
+        .box {
+            background: rgba(255,255,255,0.1);
+            padding: 25px;
+            border-radius: 15px;
+            margin-top: 25px;
+        }
+        .info {
+            color: #bbb;
+            font-size: 15px;
+            margin-top: 10px;
+        }
+    </style>
 </head>
-
 <body>
 
-<h2>Deploy your GMbanditV2 Contract</h2>
-<p>Deploy private version on Base Mainnet</p>
+<h1>Deploy your GMbanditV2 Contract</h1>
+<p>Private ritual version on Base Mainnet</p>
 
-<button id="connectBtn">Connect Wallet</button>
-<button id="disconnectBtn">Disconnect</button>
+<button id="connectWallet">Connect Wallet</button>
 
-<div class="box">
-  <input id="ownerAddr" placeholder="Owner Address">
-  <input id="collectorAddr" placeholder="Collector Address">
-  <button class="deploy" onclick="deployContract()">Deploy Now 🚀</button>
+<div id="status"></div>
+
+<div id="deployBox" class="box" style="display:none;">
+    <p><b>Your Address (Owner):</b> <span id="owner"></span></p>
+    <p><b>Collector Address:</b><br> <span style="color:#4ae7ff;">0x4AE70118DD2cB814404DaAA064daB470B7F76542</span></p>
+
+    <button id="deployBtn">Deploy Now 🚀</button>
+
+    <p class="info">Fee will be transferred to collector wallet</p>
 </div>
 
-<a href="/" class="back">← Back to Dashboard</a>
+<br>
+<a href="/">
+    <p style="color:#8ecbff;">← Back to Dashboard</p>
+</a>
 
 <script>
-let provider, signer;
+    const projectId = "2a3dfe7333d2ebd1e71b6d43f2f3e142"; // wallet connect demo
+    const collector = "0x4AE70118DD2cB814404DaAA064daB470B7F76542";
+    let provider;
+    let walletAddress = null;
 
-let web3Modal = new window.Web3Modal.default({
-  cacheProvider:false,
-  providerOptions:{
-    walletconnect:{
-      package: window.WalletConnectProvider.default,
-      options:{ rpc:{ 8453: "https://mainnet.base.org" } }
+    async function switchToBase() {
+        try {
+            await provider.request({
+                method: "wallet_switchEthereumChain",
+                params: [{ chainId: "0x2105" }]
+            });
+        } catch (err) {
+            console.log("Chain switch error:", err);
+        }
     }
-  }
-});
 
-async function connectWallet(){
-  try{
-    const instance = await web3Modal.connect();
-    provider = new ethers.providers.Web3Provider(instance);
-    signer = provider.getSigner();
-    let addr = await signer.getAddress();
-    document.getElementById("connectBtn").textContent = addr.slice(0,6)+"..."+addr.slice(-4);
-    document.getElementById("disconnectBtn").style.display="inline-block";
-  }catch(e){
-    alert("Failed: "+e.message);
-  }
-}
+    async function connect() {
+        try {
+            const modal = new window.WalletConnectModal.default({
+                projectId,
+                themeMode: "dark"
+            });
 
-function disconnectWallet(){
-  if(web3Modal.clearCachedProvider) web3Modal.clearCachedProvider();
-  signer=null;
-  provider=null;
-  document.getElementById("connectBtn").textContent="Connect Wallet";
-  document.getElementById("disconnectBtn").style.display="none";
-}
+            provider = await modal.connect();
 
-async function deployContract(){
-  if(!signer){ alert("Connect wallet first!"); return;}
-  alert("Deploy disabled (placeholder).");
-}
+            let accounts = await provider.request({ method: "eth_accounts" });
+            walletAddress = accounts[0];
 
-document.getElementById("connectBtn").onclick = connectWallet;
-document.getElementById("disconnectBtn").onclick = disconnectWallet;
+            document.getElementById("status").innerHTML =
+                "✅ Connected: " + walletAddress.slice(0, 6) + "..." + walletAddress.slice(-4);
 
+            document.getElementById("owner").innerHTML = walletAddress;
+
+            document.getElementById("deployBox").style.display = "block";
+
+            await switchToBase();
+        } catch (e) {
+            console.log("Connect error", e);
+            alert("Connection failed: " + e.message);
+        }
+    }
+
+    async function deploy() {
+        if (!provider || !walletAddress) {
+            alert("Connect wallet first!");
+            return;
+        }
+
+        alert("✅ Trigger deploy! (dummy for now)");
+    }
+
+    document.getElementById("connectWallet").onclick = connect;
+    document.getElementById("deployBtn").onclick = deploy;
 </script>
 
 </body>
