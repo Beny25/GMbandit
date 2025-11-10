@@ -89,34 +89,30 @@
   <button class="action-btn" onclick="window.location='/deploy'">Deploy Ritual Contract 🔮</button>
 </div>
 
+<script src="https://cdn.ethers.io/lib/ethers-6.3.0.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2/dist/umd/index.min.js"></script>
 
-<script type="module">
-import EthereumProvider from "https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2/dist/umd/index.js";
-
+<script>
 let provider = null;
 let signerAddress = null;
 
-// ✅ Chain config
+// Base chain settings
 const BASE_CHAIN_ID = 8453;
-const CONTRACT_ADDRESS = "0x725Ccb4ddCB715f468b301395Dfd1b1efDb5308A";
-const ABI = [
-  {
-    "inputs": [{"internalType":"string","name":"newMessage","type":"string"}],
-    "name":"performRitual",
-    "outputs":[],
-    "stateMutability":"payable",
-    "type":"function"
-  }
-];
+const CONTRACT = "0x725Ccb4ddCB715f468b301395Dfd1b1efDb5308A";
 
-// ✅ Connect Wallet
+const ABI = [{
+  "inputs":[{"internalType":"string","name":"newMessage","type":"string"}],
+  "name":"performRitual",
+  "outputs":[],
+  "stateMutability":"payable",
+  "type":"function"
+}];
+
 async function connectWallet() {
   try {
-    provider = await EthereumProvider.init({
+    provider = await window.WalletConnectEthereumProvider.init({
       projectId: "a3a3ba8ba4eaa7f69d0488d76a84b3df",
       chains: [BASE_CHAIN_ID],
-      methods: ["eth_sendTransaction", "personal_sign", "eth_signTypedData"],
       showQrModal: true,
     });
 
@@ -125,22 +121,20 @@ async function connectWallet() {
     const accounts = await provider.request({ method: "eth_accounts" });
     signerAddress = accounts[0];
 
-    document.getElementById("connectButton").innerText =
-      signerAddress.substring(0, 6) + "..." + signerAddress.substring(signerAddress.length - 4);
+    const btn = document.getElementById("connectButton");
+    btn.innerText = signerAddress.substring(0,6)+"..."+signerAddress.slice(-4);
 
     document.getElementById("disconnectButton").style.display = "inline-block";
 
-  } catch (err) {
-    console.log("Connect error:", err);
-    alert("Failed to connect: " + err.message);
+  } catch(e) {
+    alert("Connection failed: " + e.message);
   }
 }
 
-// ✅ Disconnect wallet
 function disconnectWallet() {
   try {
     provider.disconnect();
-  } catch (e) {}
+  } catch(e){}
   provider = null;
   signerAddress = null;
 
@@ -148,8 +142,13 @@ function disconnectWallet() {
   document.getElementById("disconnectButton").style.display = "none";
 }
 
-// ✅ Ritual sender
-async function sendRitual(message) {
+// Encode ABI
+function encodePayload(msg) {
+  const iface = new ethers.Interface(ABI);
+  return iface.encodeFunctionData("performRitual", [msg]);
+}
+
+async function sendRitual(text) {
   if (!provider || !signerAddress) {
     alert("Connect wallet first!");
     return;
@@ -157,9 +156,9 @@ async function sendRitual(message) {
 
   const tx = {
     from: signerAddress,
-    to: CONTRACT_ADDRESS,
-    data: encodePerformRitual(message),
-    value: "0x00000000000000001", // very low fee just example
+    to: CONTRACT,
+    data: encodePayload(text),
+    value: "0x38D7EA4C68000" // 0.0001 ETH
   };
 
   try {
@@ -167,27 +166,19 @@ async function sendRitual(message) {
       method: "eth_sendTransaction",
       params: [tx],
     });
-
-    alert("Tx sent! ✅\nHash: " + result);
-  } catch (err) {
-    alert("Tx failed: " + err.message);
+    alert("Tx sent ✅\n" + result);
+  } catch(e) {
+    alert("Transaction failed: " + e.message);
   }
-}
-
-// ✅ Encode ABI
-function encodePerformRitual(msg) {
-  const iface = new ethers.Interface(ABI);
-  return iface.encodeFunctionData("performRitual", [msg]);
 }
 
 document.getElementById("connectButton").onclick = connectWallet;
 document.getElementById("disconnectButton").onclick = disconnectWallet;
 
-document.getElementById("gmBtn").onclick = () => sendRitual("GM Ritual Initiated 🌞");
-document.getElementById("gnBtn").onclick = () => sendRitual("GN Ritual Initiated 🌙");
-document.getElementById("sleepBtn").onclick = () => sendRitual("User going to sleep 😴");
-
-</script>
+document.getElementById("gmBtn").onclick = () => sendRitual("GM Ritual 🌞");
+document.getElementById("gnBtn").onclick = () => sendRitual("GN Ritual 🌙");
+document.getElementById("sleepBtn").onclick = () => sendRitual("Go Sleep 😴");
+  </script>
 
 <script src="https://cdn.ethers.io/lib/ethers-6.3.0.umd.min.js"></script>
 
