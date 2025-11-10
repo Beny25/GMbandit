@@ -1,54 +1,36 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GM Ritual Dashboard ⚡</title>
-
-  <script src="https://unpkg.com/@walletconnect/modal@2.5.2/dist/index.umd.js"></script>
-
+  <script src="https://unpkg.com/@walletconnect/modal/dist/index.umd.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
   <style>
     body {
-      background-color: #0d0d0f;
-      font-family: Arial, sans-serif;
+      font-family: Arial;
+      background: #0a0a0a;
       color: white;
-      margin: 0;
-      padding: 0;
       text-align: center;
-    }
-    h1 {
-      margin-top: 40px;
-      font-size: 32px;
-      font-weight: bold;
+      padding: 20px;
     }
     button {
-      padding: 12px 22px;
-      border-radius: 8px;
+      padding: 15px 30px;
       border: none;
+      border-radius: 10px;
       font-size: 18px;
+      margin: 10px;
       cursor: pointer;
-      margin: 15px 0;
-      width: 70%;
+      font-weight: bold;
     }
     #connectBtn {
-      background-color: #1c6cff;
+      background: #1a73e8;
+      color: white;
     }
-    #gmBtn {
-      background-color: #1c6cff;
-    }
-    #gnBtn {
-      background-color: #8b33ff;
-    }
-    #sleepBtn {
-      background-color: #333;
-      color: #aaa;
-    }
-    a {
-      color: #4aa3ff;
-      text-decoration: none;
-      margin-top: 30px;
-      display: block;
-    }
+    #gmBtn { background:#2196F3;color:white; }
+    #gnBtn { background:#9C27B0;color:white; }
+    #sleepBtn { background:#333;color:white; }
+    a { color:#7ab7ff; text-decoration:none; }
   </style>
 </head>
 
@@ -58,61 +40,62 @@
 
   <button id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
 
-  <button id="gmBtn" onclick="doGM()">GM Ritual 🌞</button>
-  <button id="gnBtn" onclick="doGN()">GN Ritual 🌙</button>
-  <button id="sleepBtn" onclick="doSleep()">GoSleep Ritual 😴</button>
+  <br><br>
 
+  <button id="gmBtn" disabled onclick="performGM()">GM Ritual 🌞</button>
+  <button id="gnBtn" disabled onclick="performGN()">GN Ritual 🌙</button>
+  <button id="sleepBtn" disabled onclick="performSleep()">GoSleep Ritual 😴</button>
+
+  <br><br>
   <a href="/deploy">Deploy your contract 🚀</a>
 
-  <script>
-    const projectId = "48a2d3a850eb798ae0c8641887fea44f"; // WC ID kamu
-    let provider = null;
-    let walletAddress = null;
+<script>
+  let wcModal;
+  let provider;
+  let signer;
+  let userAddress;
 
-    async function connectWallet() {
-      try {
-        const modal = new window.WalletConnectModal({
-          projectId: projectId,
-          themeMode: "dark",
-        });
+  async function connectWallet() {
+    try {
+      wcModal = new window.WalletConnectModal.WalletConnectModal({
+        projectId: "48a2d3a850eb798ae0c8641887fea44f",
+        themeMode: "dark",
+      });
 
-        provider = await modal.connect();
-        const accounts = await provider.request({ method: "eth_accounts" });
+      provider = await wcModal.openModal();
 
-        walletAddress = accounts[0];
+      const accounts = await provider.request({ method: "eth_accounts" });
+      userAddress = accounts[0];
 
-        document.getElementById("connectBtn").innerText =
-          "✅ " + walletAddress.slice(0, 6) + "..." + walletAddress.slice(-4);
+      document.getElementById("connectBtn").innerText = 
+        "✅ " + userAddress.slice(0, 6) + "..." + userAddress.slice(-4);
 
-        alert("Connected: " + walletAddress);
-      } catch (err) {
-        alert("Connection failed: " + err.message);
-      }
+      document.getElementById("gmBtn").disabled = false;
+      document.getElementById("gnBtn").disabled = false;
+      document.getElementById("sleepBtn").disabled = false;
+
+      signer = new ethers.providers.Web3Provider(provider).getSigner();
+
+    } catch (err) {
+      alert("Connection failed: " + err);
     }
+  }
 
-    function mustConnect() {
-      if (!walletAddress) {
-        alert("Connect wallet first!");
-        return false;
-      }
-      return true;
-    }
+  async function performGM() {
+    if (!signer) return alert("Connect wallet first!");
+    alert("✅ GM Ritual sent! (Dummy — smart contract call coming later)");
+  }
 
-    function doGM() {
-      if (!mustConnect()) return;
-      alert("GM Ritual executed! 🌞");
-    }
+  async function performGN() {
+    if (!signer) return alert("Connect wallet first!");
+    alert("✅ GN Ritual sent!");
+  }
 
-    function doGN() {
-      if (!mustConnect()) return;
-      alert("GN Ritual executed! 🌙");
-    }
-
-    function doSleep() {
-      if (!mustConnect()) return;
-      alert("GoSleep Ritual executed 😴");
-    }
-  </script>
+  async function performSleep() {
+    if (!signer) return alert("Connect wallet first!");
+    alert("😴 GoSleep Ritual executed!");
+  }
+</script>
 
 </body>
 </html>
