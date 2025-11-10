@@ -1,153 +1,119 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Deploy GMbanditV2 Contract</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deploy Contract</title>
+
+<script src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<script src="https://unpkg.com/@rainbow-me/rainbowkit-connector@1.0.0/dist/rkc.js"></script>
 
 <style>
-  body {
-    font-family: Arial, sans-serif;
-    background: linear-gradient(135deg, #0a0f24, #1c2340);
-    color: white;
-    padding: 20px;
-    text-align: center;
-  }
-
-  h1 {
-    font-size: 28px;
-    margin-bottom: 8px;
-  }
-
-  p {
-    color: #aaa;
-    margin-bottom: 20px;
-  }
-
-  .container {
-    max-width: 500px;
-    margin: auto;
-    padding: 20px;
-    background: #11192f;
-    border-radius: 12px;
-    border: 1px solid #2f3753;
-  }
-
-  input {
-    width: 100%;
-    padding: 12px;
-    border-radius: 8px;
-    border: none;
-    margin-bottom: 12px;
-    background: #0e1430;
-    color: white;
-    font-size: 14px;
-  }
-
-  button {
-    width: 100%;
-    padding: 14px;
-    background: #4a7bff;
-    border: none;
-    border-radius: 10px;
-    font-size: 16px;
-    cursor: pointer;
-    margin-bottom: 16px;
-  }
-
-  button:hover {
-    background: #6d94ff;
-  }
-
-  #status {
-    margin-top: 10px;
-    font-size: 14px;
-    color: #f1f1f1;
-    word-break: break-all;
-  }
-
-  a {
-    color: #89b8ff;
-  }
+body {
+  margin: 0;
+  padding: 30px 20px;
+  background:#0f0f1b;
+  color:white;
+  font-family: Arial, sans-serif;
+  text-align:center;
+}
+.box {
+  background:#1a1a2e;
+  padding:20px;
+  border-radius:10px;
+  max-width:400px;
+  margin:auto;
+}
+input {
+  width:90%;
+  padding:14px;
+  font-size:16px;
+  border-radius:10px;
+  border:none;
+  margin-bottom:15px;
+}
+.deploy-btn {
+  background:#327cff;
+  border:none;
+  width:90%;
+  padding:15px;
+  font-size:18px;
+  border-radius:12px;
+  cursor:pointer;
+}
+.back {
+  margin-top:20px;
+  color:#8ab4ff;
+  text-decoration:none;
+}
 </style>
+
 </head>
-
 <body>
-  <h1>Deploy your GMbanditV2 Contract</h1>
-  <p>Deploy private version of ritual contract to Base Mainnet</p>
 
-  <div class="container">
-    <input id="ownerAddress" type="text" placeholder="Owner Address (your wallet)" />
-    <input id="collectorAddress" type="text" placeholder="Collector Address (your receiver wallet)" />
-    <button id="deployBtn">Deploy Now 🚀</button>
+<h1>Deploy your GMbanditV2 Contract</h1>
+<p>Deploy private version of ritual contract to Base Mainnet</p>
 
-    <div id="status"></div>
-  </div>
+<button id="connectButton" style="padding:12px 20px;background:#1e5eff;border:none;border-radius:12px;color:white;font-size:18px;">
+  Connect Wallet
+</button>
 
-  <p><a href="/">⬅ Back to Dashboard</a></p>
+<button id="disconnectButton" style="display:none;margin-top:15px;background:red;color:white;border:none;padding:10px 18px;border-radius:10px;">
+  Disconnect
+</button>
 
-<script src="https://cdn.jsdelivr.net/npm/ethers@6.8.0/dist/ethers.umd.min.js"></script>
+<div class="box">
+  <input id="ownerAddr" placeholder="Owner Address (your wallet)">
+  <input id="collectorAddr" placeholder="Collector Address (receiver wallet)">
+
+  <button class="deploy-btn" onclick="deployContract()">Deploy Now 🚀</button>
+</div>
+
+<a href="/" class="back">← Back to Dashboard</a>
 
 <script>
-  const FACTORY_ADDRESS = "0xb9C0b964E223D0058cdFEB445B4506415117b055"; // ✅ factory address
-  const FACTORY_ABI = [
-    "function deployGMbanditV2(address owner,address collector) external returns (address)"
-  ];
+let provider = null;
+let signer = null;
 
-  async function deployContract() {
-    const statusBox = document.getElementById("status");
-    statusBox.innerHTML = "Connecting wallet...";
+async function connectWallet() {
+  try {
+    provider = await window.RKC.connect({
+      projectId: "dbb8f3da5c5b5f3ac97a6ac3cb75e359",
+      chains: [{
+        id: 8453,
+        name: "Base",
+        rpcUrls: ["https://mainnet.base.org"]
+      }]
+    });
 
-    if (!window.ethereum) {
-      statusBox.innerHTML = "❌ No wallet detected!";
-      return;
-    }
+    const ethersProvider = new ethers.providers.Web3Provider(provider);
+    signer = ethersProvider.getSigner();
+    let address = await signer.getAddress();
+    document.getElementById("connectButton").innerText = address.substring(0,6)+"..."+address.slice(-4);
+    document.getElementById("disconnectButton").style.display = "inline-block";
+  } catch(e) {
+    alert("Connection failed: " + e.message);
+  }
+}
 
-    try {
-      await ethereum.request({ method: "eth_requestAccounts" });
+function disconnectWallet() {
+  window.RKC.disconnect();
+  signer = null;
+  document.getElementById("connectButton").innerText = "Connect Wallet";
+  document.getElementById("disconnectButton").style.display = "none";
+}
 
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
-
-      const owner = document.getElementById("ownerAddress").value.trim();
-      const collector = document.getElementById("collectorAddress").value.trim();
-
-      if (!owner || !collector) {
-        statusBox.innerHTML = "⚠️ Both owner and collector must be filled!";
-        return;
-      }
-
-      statusBox.innerHTML = "Preparing transaction...";
-
-      const factory = new ethers.Contract(FACTORY_ADDRESS, FACTORY_ABI, signer);
-
-      const tx = await factory.deployGMbanditV2(owner, collector);
-
-      statusBox.innerHTML =
-        "⏳ Broadcasting...<br><br>Tx: <a href='https://basescan.org/tx/" +
-        tx.hash +
-        "' target='_blank'>" +
-        tx.hash +
-        "</a>";
-
-      const receipt = await tx.wait();
-
-      const deployedAddress = receipt.logs[0].args[0];
-
-      statusBox.innerHTML =
-        "<b>✅ Contract deployed successfully!</b><br><br>Deployed at:<br><a href='https://basescan.org/address/" +
-        deployedAddress +
-        "' target='_blank'>" +
-        deployedAddress +
-        "</a>";
-    } catch (err) {
-      console.error(err);
-      statusBox.innerHTML = "❌ Failed: " + err.message;
-    }
+async function deployContract() {
+  if (!signer) {
+    alert("Connect wallet first!");
+    return;
   }
 
-  document.getElementById("deployBtn").onclick = deployContract;
+  alert("Deploy feature disabled for now (dummy).");
+}
+
+document.getElementById("connectButton").onclick = connectWallet;
 </script>
 
 </body>
-      </html>
+  </html>
