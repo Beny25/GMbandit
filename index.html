@@ -155,6 +155,72 @@ document.getElementById("gnBtn").onclick = () => performRitual("GN 🌙");
 document.getElementById("sleepBtn").onclick = () => performRitual("GoSleep 😴");
 
 </script>
+<script>
+document.addEventListener("DOMContentLoaded", async () => {
 
+    let provider;
+    let signer;
+    let address;
+
+    const connectButton = document.getElementById("connectWalletBtn");
+
+    // ✅ fallback detect (mobile)
+    async function detectProvider() {
+        if (window.ethereum) return window.ethereum;
+        if (window.okxwallet) return window.okxwallet;
+        if (window.bitkeep) return window.bitkeep.ethereum;
+        if (window.bitgetwallet) return window.bitgetwallet;
+        return null;
+    }
+
+    connectButton.addEventListener("click", async () => {
+        connectButton.disabled = true;
+
+        try {
+            provider = await detectProvider();
+            if (!provider) {
+                alert("No wallet detected 😭 — please use OKX/Metamask/Bitget dApp browser");
+                connectButton.disabled = false;
+                return;
+            }
+
+            // ✅ request connect
+            const accounts = await provider.request({ method: "eth_requestAccounts" });
+            address = accounts[0];
+
+            // ✅ if network = ETH → switch to Base
+            if (provider.networkVersion !== "8453") {
+                try {
+                    await provider.request({
+                        method: "wallet_switchEthereumChain",
+                        params: [{ chainId: "0x2105" }],
+                    });
+                } catch (switchErr) {
+                    // ✅ if chain missing → add chain
+                    await provider.request({
+                        method: "wallet_addEthereumChain",
+                        params: [{
+                            chainId: "0x2105",
+                            chainName: "Base",
+                            rpcUrls: ["https://mainnet.base.org"],
+                            nativeCurrency: { name: "Base Ether", symbol: "ETH", decimals: 18 },
+                            blockExplorerUrls: ["https://basescan.org"]
+                        }]
+                    });
+                }
+            }
+
+            connectButton.innerText = "Connected ✅";
+            connectButton.style.background = "#4CAF50";
+
+        } catch (err) {
+            console.warn(err);
+            connectButton.disabled = false;
+        }
+    });
+
+});
+</script>
+  
 </body>
 </html>
