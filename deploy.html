@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Deploy GMbanditV2 Contract</title>
+
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: linear-gradient(135deg, #0a0f24, #1c2340);
+    color: white;
+    padding: 20px;
+    text-align: center;
+  }
+
+  h1 {
+    font-size: 28px;
+    margin-bottom: 8px;
+  }
+
+  p {
+    color: #aaa;
+    margin-bottom: 20px;
+  }
+
+  .container {
+    max-width: 500px;
+    margin: auto;
+    padding: 20px;
+    background: #11192f;
+    border-radius: 12px;
+    border: 1px solid #2f3753;
+  }
+
+  input {
+    width: 100%;
+    padding: 12px;
+    border-radius: 8px;
+    border: none;
+    margin-bottom: 12px;
+    background: #0e1430;
+    color: white;
+    font-size: 14px;
+  }
+
+  button {
+    width: 100%;
+    padding: 14px;
+    background: #4a7bff;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    cursor: pointer;
+    margin-bottom: 16px;
+  }
+
+  button:hover {
+    background: #6d94ff;
+  }
+
+  #status {
+    margin-top: 10px;
+    font-size: 14px;
+    color: #f1f1f1;
+    word-break: break-all;
+  }
+
+  a {
+    color: #89b8ff;
+  }
+</style>
+</head>
+
+<body>
+  <h1>Deploy your GMbanditV2 Contract</h1>
+  <p>Deploy private version of ritual contract to Base Mainnet</p>
+
+  <div class="container">
+    <input id="ownerAddress" type="text" placeholder="Owner Address (your wallet)" />
+    <input id="collectorAddress" type="text" placeholder="Collector Address (your receiver wallet)" />
+    <button id="deployBtn">Deploy Now 🚀</button>
+
+    <div id="status"></div>
+  </div>
+
+  <p><a href="/">⬅ Back to Dashboard</a></p>
+
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.8.0/dist/ethers.umd.min.js"></script>
+
+<script>
+  const FACTORY_ADDRESS = "0xb9C0b964E223D0058cdFEB445B4506415117b055"; // ✅ factory address
+  const FACTORY_ABI = [
+    "function deployGMbanditV2(address owner,address collector) external returns (address)"
+  ];
+
+  async function deployContract() {
+    const statusBox = document.getElementById("status");
+    statusBox.innerHTML = "Connecting wallet...";
+
+    if (!window.ethereum) {
+      statusBox.innerHTML = "❌ No wallet detected!";
+      return;
+    }
+
+    try {
+      await ethereum.request({ method: "eth_requestAccounts" });
+
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+
+      const owner = document.getElementById("ownerAddress").value.trim();
+      const collector = document.getElementById("collectorAddress").value.trim();
+
+      if (!owner || !collector) {
+        statusBox.innerHTML = "⚠️ Both owner and collector must be filled!";
+        return;
+      }
+
+      statusBox.innerHTML = "Preparing transaction...";
+
+      const factory = new ethers.Contract(FACTORY_ADDRESS, FACTORY_ABI, signer);
+
+      const tx = await factory.deployGMbanditV2(owner, collector);
+
+      statusBox.innerHTML =
+        "⏳ Broadcasting...<br><br>Tx: <a href='https://basescan.org/tx/" +
+        tx.hash +
+        "' target='_blank'>" +
+        tx.hash +
+        "</a>";
+
+      const receipt = await tx.wait();
+
+      const deployedAddress = receipt.logs[0].args[0];
+
+      statusBox.innerHTML =
+        "<b>✅ Contract deployed successfully!</b><br><br>Deployed at:<br><a href='https://basescan.org/address/" +
+        deployedAddress +
+        "' target='_blank'>" +
+        deployedAddress +
+        "</a>";
+    } catch (err) {
+      console.error(err);
+      statusBox.innerHTML = "❌ Failed: " + err.message;
+    }
+  }
+
+  document.getElementById("deployBtn").onclick = deployContract;
+</script>
+
+</body>
+      </html>
