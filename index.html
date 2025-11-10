@@ -11,9 +11,9 @@ body {
   padding: 0;
   background: linear-gradient(135deg, #ffffff, #b3e5fc);
   font-family: Arial, sans-serif;
-  color: #000;
   text-align: center;
 }
+
 button {
   padding: 14px;
   margin: 8px;
@@ -23,10 +23,12 @@ button {
   border: none;
   cursor: pointer;
 }
+
 #connectBtn {
   background-color: #2962ff;
   color: white;
 }
+
 .ritualBtn {
   background-color: #009688;
   color: white;
@@ -34,87 +36,82 @@ button {
 </style>
 
 <script src="https://cdn.jsdelivr.net/npm/ethers@6.7.1/dist/ethers.min.js"></script>
-<script src="https://unpkg.com/@walletconnect/modal@2.6.2/dist/index.umd.js"></script>
 </head>
 
 <body>
 
-<h1>GM Ritual • On Base Chain</h1>
-<h2>Connect • Select Ritual • Confirm Transaction</h2>
+<h1>GM Ritual • On Base</h1>
+<h2>Connect → Choose Ritual → Confirm TX</h2>
 
 <button id="connectBtn">Connect Wallet</button>
 <br>
-<button class="ritualBtn" id="gmBtn" disabled>GM Ritual ✅</button>
+<button class="ritualBtn" id="gmBtn" disabled>GM Ritual ⚡</button>
 <button class="ritualBtn" id="gnBtn" disabled>GN Ritual 🌙</button>
 <button class="ritualBtn" id="sleepBtn" disabled>GoSleep Ritual 😴</button>
 
 <script>
-const CONTRACT_ADDRESS = "0x725Ccb4ddCB715f468b301395Dfd1b1efDb5308A";
+
+const CONTRACT = "0x725Ccb4ddCB715f468b301395Dfd1b1efDb5308A";
 const ABI = [
   "function performRitual(string calldata newMessage) external payable",
   "function fee() public view returns(uint256)"
 ];
 
-// ===== WalletConnect Modal Setup =====
-const wc = new window.WalletConnectModal.default({
-  projectId: "6104d969b4ed13800dc8853d01b83d53",  // ✅ public project (aman buat testing)
-  themeMode: "light",
-  themeVariables: {
-    "--wcm-font-family": "Arial"
-  }
-});
-
 let provider = null;
 let signer = null;
 
-// ===== Auto-switch to Base chain =====
-async function ensureBaseChain() {
-  if (!window.ethereum) return;
+/* ✅ Detect provider including OKX, Bitget, Metamask Mobile */
+function getProvider() {
+  if (window.ethereum) return window.ethereum;
+  if (window.okxwallet) return window.okxwallet;
+  if (window.bitkeep && window.bitkeep.ethereum) return window.bitkeep.ethereum;
+  if (window.bitgetwallet) return window.bitgetwallet;
+  return null;
+}
 
+/* ✅ Force Base network (8453) */
+async function switchToBase(p) {
   try {
-    await window.ethereum.request({
-       method: "wallet_switchEthereumChain",
-       params: [{ chainId: "0x2105" }]
+    await p.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: "0x2105" }]
     });
-  } catch (e) {
-    await window.ethereum.request({
+  } catch (err) {
+    await p.request({
       method: "wallet_addEthereumChain",
       params: [{
         chainId: "0x2105",
         chainName: "Base",
         rpcUrls: ["https://mainnet.base.org"],
-        nativeCurrency: { name: "Base", symbol: "ETH", decimals: 18 },
-        blockExplorerUrls: ["https://basescan.org"],
+        nativeCurrency: { name: "Base ETH", symbol: "ETH", decimals: 18 },
+        blockExplorerUrls: ["https://basescan.org"]
       }]
     });
   }
 }
 
+/* ✅ Connect wallet (mobile + desktop) */
 async function connectWallet() {
+  const p = getProvider();
+  if (!p) {
+    alert("Wallet not detected. Use Metamask/OKX/Bitget dApp browser.");
+    return;
+  }
+
   try {
-    // ===== Coba Metamask/Browser Wallet =====
-    if (window.ethereum) {
-      await ensureBaseChain();
-      provider = new ethers.BrowserProvider(window.ethereum);
-      signer = await provider.getSigner();
-      document.getElementById("connectBtn").innerText = "Connected ✅";
-      enableButtons();
-      return;
-    }
+    const accounts = await p.request({ method: "eth_requestAccounts" });
 
-    // ===== Jika browser tidak punya injected wallet, fallback ke WalletConnect =====
-    const session = await wc.openModal();
-    if (session) {
-      provider = new ethers.JsonRpcProvider("https://mainnet.base.org"); // fallback
-      signer = null; // WC v2 tidak expose signer direct mode
-      alert("WalletConnect connected — but direct signer not supported here.\nUse OKX dApp browser / MetaMask browser.");
-      document.getElementById("connectBtn").innerText = "Connected (WC)";
-      enableButtons();
-    }
+    await switchToBase(p);
 
-  } catch (err) {
-    console.log(err);
-    alert("Connection failed!");
+    provider = new ethers.BrowserProvider(p);
+    signer = await provider.getSigner();
+
+    document.getElementById("connectBtn").innerText = "Connected ✅";
+
+    enableButtons();
+  } catch (e) {
+    console.error(e);
+    alert("Connection failed ❌");
   }
 }
 
@@ -124,103 +121,37 @@ function enableButtons() {
   document.getElementById("sleepBtn").disabled = false;
 }
 
-// ========= ritual execution ==========
-async function performRitual(messageText) {
+/* ✅ Ritual Transaction */
+async function perform(message) {
   try {
-    provider = new ethers.BrowserProvider(window.ethereum);
+    const p = getProvider();
+    await switchToBase(p);
+
+    provider = new ethers.BrowserProvider(p);
     signer = await provider.getSigner();
-    await ensureBaseChain();
 
-    const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
-    const fee = await contract.fee();
+    const c = new ethers.Contract(CONTRACT, ABI, signer);
+    const fee = await c.fee();
 
-    const tx = await contract.performRitual(messageText, {
-      value: fee
-    });
+    const tx = await c.performRitual(message, { value: fee });
+    alert("Tx sent…");
 
-    alert("Tx sent! Waiting confirmation...");
     await tx.wait();
     alert("Ritual complete ✅");
+
   } catch (err) {
     console.error(err);
-    alert("Ritual failed ❌");
+    alert("TX failed ❌");
   }
 }
 
-
-// ===== Button binds =====
+/* ✅ Button Actions */
 document.getElementById("connectBtn").onclick = connectWallet;
-document.getElementById("gmBtn").onclick = () => performRitual("GM ⚡");
-document.getElementById("gnBtn").onclick = () => performRitual("GN 🌙");
-document.getElementById("sleepBtn").onclick = () => performRitual("GoSleep 😴");
+document.getElementById("gmBtn").onclick = () => perform("GM ⚡");
+document.getElementById("gnBtn").onclick = () => perform("GN 🌙");
+document.getElementById("sleepBtn").onclick = () => perform("GoSleep 😴");
 
 </script>
-<script>
-document.addEventListener("DOMContentLoaded", async () => {
 
-    let provider;
-    let signer;
-    let address;
-
-    const connectButton = document.getElementById("connectWalletBtn");
-
-    // ✅ fallback detect (mobile)
-    async function detectProvider() {
-        if (window.ethereum) return window.ethereum;
-        if (window.okxwallet) return window.okxwallet;
-        if (window.bitkeep) return window.bitkeep.ethereum;
-        if (window.bitgetwallet) return window.bitgetwallet;
-        return null;
-    }
-
-    connectButton.addEventListener("click", async () => {
-        connectButton.disabled = true;
-
-        try {
-            provider = await detectProvider();
-            if (!provider) {
-                alert("No wallet detected 😭 — please use OKX/Metamask/Bitget dApp browser");
-                connectButton.disabled = false;
-                return;
-            }
-
-            // ✅ request connect
-            const accounts = await provider.request({ method: "eth_requestAccounts" });
-            address = accounts[0];
-
-            // ✅ if network = ETH → switch to Base
-            if (provider.networkVersion !== "8453") {
-                try {
-                    await provider.request({
-                        method: "wallet_switchEthereumChain",
-                        params: [{ chainId: "0x2105" }],
-                    });
-                } catch (switchErr) {
-                    // ✅ if chain missing → add chain
-                    await provider.request({
-                        method: "wallet_addEthereumChain",
-                        params: [{
-                            chainId: "0x2105",
-                            chainName: "Base",
-                            rpcUrls: ["https://mainnet.base.org"],
-                            nativeCurrency: { name: "Base Ether", symbol: "ETH", decimals: 18 },
-                            blockExplorerUrls: ["https://basescan.org"]
-                        }]
-                    });
-                }
-            }
-
-            connectButton.innerText = "Connected ✅";
-            connectButton.style.background = "#4CAF50";
-
-        } catch (err) {
-            console.warn(err);
-            connectButton.disabled = false;
-        }
-    });
-
-});
-</script>
-  
 </body>
-</html>
+  </html>
