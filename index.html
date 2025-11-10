@@ -1,122 +1,173 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>GM Ritual Dashboard ⚡</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
   <style>
     body {
-      margin: 0; padding: 0;
-      background: #0d0d0d;
-      color: white;
+      background: #000;
+      color: #fff;
+      font-family: Arial, sans-serif;
       text-align: center;
-      font-family: Arial;
+      padding: 20px;
     }
-    h1 { margin-top: 40px; font-size: 32px; }
+
     button {
-      padding: 14px 28px;
-      border: none; border-radius: 12px;
-      font-size: 18px;
-      width: 80%; max-width: 350px;
-      margin: 12px auto;
-      display: block;
+      padding: 12px 18px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      margin: 10px;
     }
-    #connectBtn { background: #007bff; color: white; }
-    #gmBtn { background: #1e90ff; color: white; }
-    #gnBtn { background: #9b59b6; color: white; }
-    #sleepBtn { background: #3a3a3a; color: #ddd; }
+
+    .btn-primary {
+      background: #3b82f6;
+    }
+
+    .btn-success {
+      background: #22c55e;
+    }
+
+    .box {
+      margin-top: 25px;
+      padding: 15px;
+      border-radius: 10px;
+      background: #111;
+      display: inline-block;
+      min-width: 250px;
+    }
   </style>
 
-  <!-- Web3Modal v1 full bundled -->
-  <script src="https://unpkg.com/web3modal@1.9.12/dist/index.js"></script>
-
-  <!-- WalletConnect V1 (WORKING FOR MOBILE) -->
-  <script src="https://unpkg.com/@walletconnect/web3-provider/dist/umd/index.min.js"></script>
-
-  <!-- Ethersjs -->
-  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
 </head>
 <body>
 
-<h1>GM Ritual Dashboard ⚡</h1>
+  <h1>GM Ritual Dashboard ⚡</h1>
 
-<button id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
-<button id="gmBtn" disabled onclick="gm()">GM Ritual ☀️</button>
-<button id="gnBtn" disabled onclick="gn()">GN Ritual 🌙</button>
-<button id="sleepBtn" disabled onclick="gosleep()">GoSleep Ritual 😴</button>
+  <div class="box">
+    <button class="btn-primary" onclick="connectWallet()">Connect Wallet</button>
+
+    <p id="walletAddress">Not Connected</p>
+
+    <button class="btn-success" onclick="sendGM()">GM ⚡</button>
+  </div>
 
 <script>
-  const CONTRACT_ADDRESS = "0x725Ccb4ddCB715f468b301395Dfd1b1efDb5308A";
+const BASE_CHAIN_ID = 8453;
+const BASE_CHAIN_HEX = "0x2105";
+const BASE_RPC = "https://mainnet.base.org";
 
-  const ABI = [
-    "function gm() public",
-    "function gn() public",
-    "function gosleep() public"
-  ];
+let provider = null;
+let signer = null;
 
-  let provider;
-  let web3Provider;
-  let signer;
+async function connectWallet() {
+  try {
+    if (!window.ethereum) {
+      alert("No wallet found! Install MetaMask or use WalletConnect.");
+      return;
+    }
 
-  const walletConnectProvider = new WalletConnectProvider.default({
-    rpc: {
-      8453: "https://mainnet.base.org"
-    },
-    chainId: 8453
-  });
+    // Request accounts
+    await window.ethereum.request({ method: "eth_requestAccounts" });
 
-  const web3Modal = new Web3Modal.default({
-    cacheProvider: false,
-    providerOptions: {
-      walletconnect: {
-        package: WalletConnectProvider.default,
-        options: {
-          rpc: { 8453: "https://mainnet.base.org" }
-        }
+    provider = new ethers.providers.Web3Provider(window.ethereum, "any");
+    signer = provider.getSigner();
+
+    const address = await signer.getAddress();
+    document.getElementById("walletAddress").innerHTML =
+      "✅ " + address.slice(0, 6) + "..." + address.slice(-4);
+
+    await ensureBaseNetwork();
+    setupListeners();
+
+  } catch (err) {
+    console.error(err);
+    alert("Error connecting: " + err.message);
+  }
+}
+
+async function ensureBaseNetwork() {
+  try {
+    await window.ethereum.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: BASE_CHAIN_HEX }]
+    });
+  } catch (err) {
+    if (err.code === 4902) {
+      // If Base not added yet
+      try {
+        await window.ethereum.request({
+          method: "wallet_addEthereumChain",
+          params: [{
+            chainId: BASE_CHAIN_HEX,
+            chainName: "Base Mainnet",
+            rpcUrls: [BASE_RPC],
+            nativeCurrency: {
+              name: "Ether",
+              symbol: "ETH",
+              decimals: 18
+            },
+            blockExplorerUrls: ["https://basescan.org/"]
+          }]
+        });
+      } catch (addErr) {
+        alert("Failed to add Base network: " + addErr.message);
       }
     }
+  }
+}
+
+function setupListeners() {
+  // Auto switch ke Base kalau user pindah network
+  window.ethereum.on("chainChanged", async (chainId) => {
+    const id = parseInt(chainId, 16);
+    if (id !== BASE_CHAIN_ID) {
+      await ensureBaseNetwork();
+    }
   });
 
-  async function connectWallet() {
-    try {
-      provider = await web3Modal.connect();
-      web3Provider = new ethers.providers.Web3Provider(provider);
-      signer = web3Provider.getSigner();
-
-      const address = await signer.getAddress();
-
-      document.getElementById("connectBtn").innerText =
-        "✅ " + address.slice(0, 6) + "..." + address.slice(-4);
-
-      document.getElementById("gmBtn").disabled = false;
-      document.getElementById("gnBtn").disabled = false;
-      document.getElementById("sleepBtn").disabled = false;
-
-    } catch (err) {
-      alert("Connection failed: " + err.message);
+  // Update address kalau user ganti wallet
+  window.ethereum.on("accountsChanged", (accounts) => {
+    if (accounts.length > 0) {
+      document.getElementById("walletAddress").innerHTML =
+        "✅ " + accounts[0].slice(0, 6) + "..." + accounts[0].slice(-4);
     }
-  }
+  });
+}
 
-  async function gm() {
-    const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
-    try { await contract.gm(); alert("✅ GM done!"); }
-    catch (e) { alert(e.message); }
-  }
+async function sendGM() {
+  try {
+    if (!signer) {
+      alert("Connect wallet first!");
+      return;
+    }
 
-  async function gn() {
-    const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
-    try { await contract.gn(); alert("✅ GN done!"); }
-    catch (e) { alert(e.message); }
-  }
+    // Confirm base network
+    const net = await provider.getNetwork();
+    if (net.chainId !== BASE_CHAIN_ID) {
+      await ensureBaseNetwork();
+    }
 
-  async function gosleep() {
-    const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
-    try { await contract.gosleep(); alert("✅ GoSleep done!"); }
-    catch (e) { alert(e.message); }
+    // Replace with your contract address
+    const contractAddress = "0xYOUR_CONTRACT_ADDRESS";
+
+    const abi = [
+      "function gm() public returns(bool)"
+    ];
+
+    const contract = new ethers.Contract(contractAddress, abi, signer);
+
+    const tx = await contract.gm();
+    alert("GM sent! ✅ TX: " + tx.hash);
+
+  } catch (err) {
+    console.error(err);
+    alert("Error sending GM: " + err.message);
   }
+}
 </script>
 
 </body>
-  </html>
+</html>
