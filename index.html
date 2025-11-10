@@ -32,7 +32,8 @@ button {
 
 <h1>GM Ritual Dashboard ⚡</h1>
 
-<w3m-button></w3m-button>
+<!-- ✅ manual connect button -->
+<button id="connectBtn" style="background:#0a84ff;">Connect Wallet</button>
 
 <button id="gmBtn">GM Ritual 🌞</button>
 <button id="gnBtn" style="background:#aa55ff;">GN Ritual 🌙</button>
@@ -46,7 +47,8 @@ button {
 // 1. CONFIG WEB3MODAL (NEW VERSION)
 // ———————————————————————————————
 
-const projectId = "e9ab1ec848b29cf2e7b9f4d2a5f92f73"; // demo ID (bisa ganti nanti)
+const projectId = "e9ab1ec848b29cf2e7b9f4d2a5f92f73"; // demo id
+let modal; // supaya bisa diakses global
 
 const metadata = {
     name: "GMbandit",
@@ -63,40 +65,57 @@ const chains = [{
     rpcUrl: "https://mainnet.base.org"
 }];
 
-const modal = new Web3Modal({ projectId, chains, metadata });
+modal = new Web3Modal({ projectId, chains, metadata });
+
+let providerInstance = null;
 
 // ———————————————————————————————
-// 2. GET PROVIDER (AFTER CONNECT)
+// 2. CONNECT FUNCTION (manual button)
 // ———————————————————————————————
 
-async function getProvider() {
+async function connectWallet() {
     try {
-        const walletProvider = await modal.getWalletProvider();
-        if (!walletProvider) throw new Error("No provider found");
+        await modal.open(); // launch modal wallet
 
-        return new ethers.providers.Web3Provider(walletProvider);
-    } catch (e) {
-        alert("Provider error: " + e.message);
-        return null;
+        const walletProvider = await modal.getWalletProvider();
+
+        if (!walletProvider) {
+            alert("No wallet selected");
+            return;
+        }
+
+        providerInstance = new ethers.providers.Web3Provider(walletProvider);
+        const signer = providerInstance.getSigner();
+        const addr = await signer.getAddress();
+
+        // update text
+        document.getElementById("connectBtn").innerHTML = "✅ " + addr.substring(0,6) + "..." + addr.substring(addr.length-4);
+
+    } catch (err) {
+        alert("Connect error: " + err.message);
     }
 }
+
+document.getElementById("connectBtn").onclick = connectWallet;
+
 
 // ———————————————————————————————
 // 3. RITUAL FUNCTIONS
 // ———————————————————————————————
 
 async function performRitual(type) {
-    const provider = await getProvider();
-    if (!provider) return;
-
-    const network = await provider.getNetwork();
-
-    if (network.chainId !== 8453) {
-        alert("Switch to Base Mainnet first!");
+    if (!providerInstance) {
+        alert("Please connect wallet first!");
         return;
     }
 
-    alert(type + " ritual executed! (simulasi)");
+    const network = await providerInstance.getNetwork();
+    if (network.chainId !== 8453) {
+        alert("Please switch to Base Mainnet first!");
+        return;
+    }
+
+    alert(type + " ritual executed (simulation)");
 }
 
 document.getElementById("gmBtn").onclick = () => performRitual("GM");
