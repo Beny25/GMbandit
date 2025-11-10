@@ -1,117 +1,158 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>GM Ritual Dashboard ⚡</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8" />
+<title>GM Ritual On Base</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 
 <style>
 body {
-  margin: 0; padding: 0;
-  background: #0d0d0d; color: white; text-align: center;
+  margin: 0;
+  padding: 0;
+  background: linear-gradient(135deg, #ffffff, #b3e5fc);
   font-family: Arial, sans-serif;
+  color: #000;
+  text-align: center;
 }
 button {
-  width: 80%; padding: 16px; font-size: 20px;
-  border-radius: 12px; border: none; margin: 14px auto;
-  color: white; cursor: pointer; display: block;
+  padding: 14px;
+  margin: 8px;
+  width: 220px;
+  border-radius: 10px;
+  font-size: 18px;
+  border: none;
+  cursor: pointer;
 }
-#connectBtn { background: #1e5cff; }
-#gmBtn { background: #005bbb; }
-#gnBtn { background: #7b3ea9; }
-#sleepBtn { background: #555; }
-.disabled { opacity: 0.4; pointer-events: none; }
+#connectBtn {
+  background-color: #2962ff;
+  color: white;
+}
+.ritualBtn {
+  background-color: #009688;
+  color: white;
+}
 </style>
 
-<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
-<script src="https://unpkg.com/@walletconnect/modal@2.6.0/dist/index.umd.min.js"></script>
-
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.7.1/dist/ethers.min.js"></script>
+<script src="https://unpkg.com/@walletconnect/modal@2.6.2/dist/index.umd.js"></script>
 </head>
+
 <body>
 
-<h1>GM Ritual Dashboard ⚡</h1>
+<h1>GM Ritual • On Base Chain</h1>
+<h2>Connect • Select Ritual • Confirm Transaction</h2>
 
 <button id="connectBtn">Connect Wallet</button>
-<button id="gmBtn" class="disabled">GM Ritual 🌞</button>
-<button id="gnBtn" class="disabled">GN Ritual 🌙</button>
-<button id="sleepBtn" class="disabled">GoSleep Ritual 😴</button>
-
-<p><a href="deploy.html" style="color:#4da6ff;">Deploy your contract 🚀</a></p>
+<br>
+<button class="ritualBtn" id="gmBtn" disabled>GM Ritual ✅</button>
+<button class="ritualBtn" id="gnBtn" disabled>GN Ritual 🌙</button>
+<button class="ritualBtn" id="sleepBtn" disabled>GoSleep Ritual 😴</button>
 
 <script>
-// ===================== ✅ CONTRACT DETAILS =====================
 const CONTRACT_ADDRESS = "0x725Ccb4ddCB715f468b301395Dfd1b1efDb5308A";
 const ABI = [
-  {"inputs": [], "name": "gm", "outputs": [], "stateMutability": "nonpayable", "type": "function"},
-  {"inputs": [], "name": "gn", "outputs": [], "stateMutability": "nonpayable", "type": "function"},
-  {"inputs": [], "name": "sleep", "outputs": [], "stateMutability": "nonpayable", "type": "function"}
+  "function performRitual(string calldata newMessage) external payable",
+  "function fee() public view returns(uint256)"
 ];
 
-const BASE_CHAIN_HEX = "0x2105"; // 8453 Base mainnet
-let provider;
-let signer;
-let modal;
-
-// ✅ WalletConnect v2 Modal Init
-modal = new WalletConnectModal.default({
-  projectId: "24b960bbcb9fa912923190d9ce99ed92",
-  walletConnectVersion: 2,
-  themeMode: "dark",
+// ===== WalletConnect Modal Setup =====
+const wc = new window.WalletConnectModal.default({
+  projectId: "6104d969b4ed13800dc8853d01b83d53",  // ✅ public project (aman buat testing)
+  themeMode: "light",
+  themeVariables: {
+    "--wcm-font-family": "Arial"
+  }
 });
 
-// ✅ Connect Wallet
-async function connect() {
+let provider = null;
+let signer = null;
+
+// ===== Auto-switch to Base chain =====
+async function ensureBaseChain() {
+  if (!window.ethereum) return;
+
   try {
-    const session = await modal.openModal({
-      chains: [8453], // Base
+    await window.ethereum.request({
+       method: "wallet_switchEthereumChain",
+       params: [{ chainId: "0x2105" }]
     });
+  } catch (e) {
+    await window.ethereum.request({
+      method: "wallet_addEthereumChain",
+      params: [{
+        chainId: "0x2105",
+        chainName: "Base",
+        rpcUrls: ["https://mainnet.base.org"],
+        nativeCurrency: { name: "Base", symbol: "ETH", decimals: 18 },
+        blockExplorerUrls: ["https://basescan.org"],
+      }]
+    });
+  }
+}
 
-    const wcProvider = new ethers.providers.Web3Provider(session);
-    provider = wcProvider;
-    signer = wcProvider.getSigner();
-    const addr = await signer.getAddress();
+async function connectWallet() {
+  try {
+    // ===== Coba Metamask/Browser Wallet =====
+    if (window.ethereum) {
+      await ensureBaseChain();
+      provider = new ethers.BrowserProvider(window.ethereum);
+      signer = await provider.getSigner();
+      document.getElementById("connectBtn").innerText = "Connected ✅";
+      enableButtons();
+      return;
+    }
 
-    document.getElementById("connectBtn").innerHTML =
-      "✅ " + addr.slice(0, 6) + "..." + addr.slice(-4);
-
-    enableButtons();
+    // ===== Jika browser tidak punya injected wallet, fallback ke WalletConnect =====
+    const session = await wc.openModal();
+    if (session) {
+      provider = new ethers.JsonRpcProvider("https://mainnet.base.org"); // fallback
+      signer = null; // WC v2 tidak expose signer direct mode
+      alert("WalletConnect connected — but direct signer not supported here.\nUse OKX dApp browser / MetaMask browser.");
+      document.getElementById("connectBtn").innerText = "Connected (WC)";
+      enableButtons();
+    }
 
   } catch (err) {
-    alert("Connection failed: " + err.message);
+    console.log(err);
+    alert("Connection failed!");
   }
 }
 
-// ✅ Enable Ritual Buttons After Connect
 function enableButtons() {
-  document.getElementById("gmBtn").classList.remove("disabled");
-  document.getElementById("gnBtn").classList.remove("disabled");
-  document.getElementById("sleepBtn").classList.remove("disabled");
+  document.getElementById("gmBtn").disabled = false;
+  document.getElementById("gnBtn").disabled = false;
+  document.getElementById("sleepBtn").disabled = false;
 }
 
-// ✅ Ritual Execution
-async function ritual(type) {
-  if (!signer) return alert("Connect wallet dulu bro!");
-
+// ========= ritual execution ==========
+async function performRitual(messageText) {
   try {
+    provider = new ethers.BrowserProvider(window.ethereum);
+    signer = await provider.getSigner();
+    await ensureBaseChain();
+
     const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
-    let tx;
+    const fee = await contract.fee();
 
-    if (type === "GM") tx = await contract.gm();
-    if (type === "GN") tx = await contract.gn();
-    if (type === "Sleep") tx = await contract.sleep();
+    const tx = await contract.performRitual(messageText, {
+      value: fee
+    });
 
-    alert(type + " Ritual TX sent ✅\nTX Hash:\n" + tx.hash);
-
-  } catch (e) {
-    alert("Error: " + e.message);
+    alert("Tx sent! Waiting confirmation...");
+    await tx.wait();
+    alert("Ritual complete ✅");
+  } catch (err) {
+    console.error(err);
+    alert("Ritual failed ❌");
   }
 }
 
-// ✅ Button Listeners
-document.getElementById("connectBtn").onclick = connect;
-document.getElementById("gmBtn").onclick = () => ritual("GM");
-document.getElementById("gnBtn").onclick = () => ritual("GN");
-document.getElementById("sleepBtn").onclick = () => ritual("Sleep");
+
+// ===== Button binds =====
+document.getElementById("connectBtn").onclick = connectWallet;
+document.getElementById("gmBtn").onclick = () => performRitual("GM ⚡");
+document.getElementById("gnBtn").onclick = () => performRitual("GN 🌙");
+document.getElementById("sleepBtn").onclick = () => performRitual("GoSleep 😴");
 
 </script>
 
