@@ -1,122 +1,104 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Deploy GMbanditV2</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Deploy GMbanditV2 Contract 🚀</title>
 
-    <script src="https://unpkg.com/@walletconnect/modal@2.5.2/dist/index.umd.js"></script>
+  <script src="https://unpkg.com/@walletconnect/modal@2.5.2/dist/index.umd.js"></script>
 
-    <style>
-        body {
-            background: #0d0d16;
-            margin: 0;
-            font-family: Arial;
-            text-align: center;
-            color: #fff;
-            padding: 30px;
-        }
-        button {
-            padding: 14px 22px;
-            border-radius: 10px;
-            border: none;
-            cursor: pointer;
-            font-size: 17px;
-            margin-top: 20px;
-            background: #0056ff;
-            color: #fff;
-        }
-        .box {
-            background: rgba(255,255,255,0.1);
-            padding: 25px;
-            border-radius: 15px;
-            margin-top: 25px;
-        }
-        .info {
-            color: #bbb;
-            font-size: 15px;
-            margin-top: 10px;
-        }
-    </style>
+  <style>
+    body {
+      background-color: #0d0d0f;
+      color: white;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+    h1 {
+      margin-top: 20px;
+      font-size: 28px;
+      font-weight: bold;
+    }
+    input {
+      width: 85%;
+      padding: 14px;
+      margin-top: 15px;
+      border-radius: 8px;
+      border: none;
+      font-size: 16px;
+    }
+    button {
+      width: 85%;
+      padding: 14px;
+      margin-top: 20px;
+      border-radius: 10px;
+      background-color: #1c6cff;
+      color: white;
+      font-size: 18px;
+      border: none;
+      cursor: pointer;
+    }
+    a {
+      color: #4aa3ff;
+      margin-top: 30px;
+      display: block;
+    }
+  </style>
+
 </head>
 <body>
 
-<h1>Deploy your GMbanditV2 Contract</h1>
-<p>Private ritual version on Base Mainnet</p>
+  <h1>Deploy your GMbanditV2 Contract</h1>
+  <p>Deploy private version on Base Mainnet</p>
 
-<button id="connectWallet">Connect Wallet</button>
+  <button id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
 
-<div id="status"></div>
+  <input type="text" id="owner" placeholder="Owner Address (auto)" readonly />
+  <input type="text" id="collector" placeholder="Collector Address (auto)" readonly />
 
-<div id="deployBox" class="box" style="display:none;">
-    <p><b>Your Address (Owner):</b> <span id="owner"></span></p>
-    <p><b>Collector Address:</b><br> <span style="color:#4ae7ff;">0x4AE70118DD2cB814404DaAA064daB470B7F76542</span></p>
+  <button onclick="deployNow()">Deploy Now 🚀</button>
 
-    <button id="deployBtn">Deploy Now 🚀</button>
+  <a href="/">← Back to Dashboard</a>
 
-    <p class="info">Fee will be transferred to collector wallet</p>
-</div>
-
-<br>
-<a href="/">
-    <p style="color:#8ecbff;">← Back to Dashboard</p>
-</a>
-
-<script>
-    const projectId = "2a3dfe7333d2ebd1e71b6d43f2f3e142"; // wallet connect demo
-    const collector = "0x4AE70118DD2cB814404DaAA064daB470B7F76542";
-    let provider;
+  <script>
+    const projectId = "48a2d3a850eb798ae0c8641887fea44f";
+    let provider = null;
     let walletAddress = null;
 
-    async function switchToBase() {
-        try {
-            await provider.request({
-                method: "wallet_switchEthereumChain",
-                params: [{ chainId: "0x2105" }]
-            });
-        } catch (err) {
-            console.log("Chain switch error:", err);
-        }
+    async function connectWallet() {
+      try {
+        const modal = new window.WalletConnectModal({
+          projectId: projectId,
+          themeMode: "dark",
+        });
+
+        provider = await modal.connect();
+        const accounts = await provider.request({ method: "eth_accounts" });
+
+        walletAddress = accounts[0];
+
+        document.getElementById("connectBtn").innerText =
+          "✅ " + walletAddress.slice(0, 6) + "..." + walletAddress.slice(-4);
+
+        document.getElementById("owner").value = walletAddress;
+        document.getElementById("collector").value = walletAddress;
+
+        alert("Connected: " + walletAddress);
+
+      } catch (err) {
+        alert("Connection failed: " + err.message);
+      }
     }
 
-    async function connect() {
-        try {
-            const modal = new window.WalletConnectModal.default({
-                projectId,
-                themeMode: "dark"
-            });
-
-            provider = await modal.connect();
-
-            let accounts = await provider.request({ method: "eth_accounts" });
-            walletAddress = accounts[0];
-
-            document.getElementById("status").innerHTML =
-                "✅ Connected: " + walletAddress.slice(0, 6) + "..." + walletAddress.slice(-4);
-
-            document.getElementById("owner").innerHTML = walletAddress;
-
-            document.getElementById("deployBox").style.display = "block";
-
-            await switchToBase();
-        } catch (e) {
-            console.log("Connect error", e);
-            alert("Connection failed: " + e.message);
-        }
+    function deployNow() {
+      if (!walletAddress) {
+        alert("Connect wallet first!");
+        return;
+      }
+      alert("⚙️ Deployment transaction triggered... (mock only)");
     }
-
-    async function deploy() {
-        if (!provider || !walletAddress) {
-            alert("Connect wallet first!");
-            return;
-        }
-
-        alert("✅ Trigger deploy! (dummy for now)");
-    }
-
-    document.getElementById("connectWallet").onclick = connect;
-    document.getElementById("deployBtn").onclick = deploy;
-</script>
+  </script>
 
 </body>
 </html>
