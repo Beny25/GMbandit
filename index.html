@@ -1,95 +1,226 @@
-<script type="module">
-  import { ethers } from "https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.1/ethers.min.js";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GM Ritual Dashboard</title>
 
-  let provider = null;
-  let signer = null;
-  let connectedAddress = null;
-
-  const connectBtn = document.getElementById("connectBtn");
-  const walletMenu = document.getElementById("walletMenu");
-  const walletAddr = document.getElementById("walletAddr");
-  const disconnectBtn = document.getElementById("disconnectBtn");
-  const statusBox = document.getElementById("status");
-
-  const contractAddress = "0x725Ccb4ddCB715f468b301395Dfd1b1efDb5308A";
-
-  const abi = [
-    "function performRitual(string newMessage) payable",
-    "function fee() view returns (uint256)"
-  ];
-
-  function shortAddr(addr) {
-    return addr.slice(0,6) + "..." + addr.slice(-4);
-  }
-
-  function updateUI() {
-    if (!connectedAddress) {
-      connectBtn.innerText = "Connect Wallet";
-      walletMenu.style.display = "none";
-    } else {
-      connectBtn.innerText = "✅ " + shortAddr(connectedAddress);
-      walletAddr.innerText = connectedAddress;
-      walletMenu.style.display = "block";
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #ffffff, #e8f1ff);
+      font-family: "Inter", sans-serif;
+      color: #333;
+      text-align: center;
     }
-  }
 
-  connectBtn.onclick = async function () {
-    if (!window.ethereum) return alert("Install MetaMask or BaseWallet!");
-
-    try {
-      provider = new ethers.BrowserProvider(window.ethereum);
-      const accounts = await ethereum.request({ method: "eth_requestAccounts" });
-      signer = await provider.getSigner();
-      connectedAddress = accounts[0];
-
-      statusBox.innerText = "🔗 Connected!";
-      updateUI();
-    } catch (err) {
-      console.error(err);
-      alert("Wallet connection failed");
+    #walletBar {
+      position: fixed;
+      top: 15px;
+      right: 15px;
+      z-index: 999;
     }
-  };
 
-  disconnectBtn.onclick = function () {
-    provider = null;
-    signer = null;
-    connectedAddress = null;
-    statusBox.innerText = "🔌 Disconnected";
+    .walletBtn {
+      padding: 10px 18px;
+      border-radius: 8px;
+      background: #0052ff;
+      color: white;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: 0.2s;
+    }
 
-    updateUI();
-  };
+    .walletBtn:hover {
+      background: #003bcc;
+    }
 
-  if (window.ethereum) {
-    window.ethereum.on("accountsChanged", async (accounts) => {
-      if (accounts.length === 0) {
-        connectedAddress = null;
-        signer = null;
-        provider = null;
-        statusBox.innerText = "🔌 Wallet disconnected";
+    #walletMenu {
+      display: none;
+      background: #fff;
+      padding: 10px;
+      border-radius: 10px;
+      margin-top: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      min-width: 170px;
+    }
+
+    #disconnectBtn {
+      width: 100%;
+      padding: 8px;
+      border-radius: 6px;
+      background: #ff4d4d;
+      color: white;
+      border: none;
+      cursor: pointer;
+      margin-top: 5px;
+    }
+
+    #disconnectBtn:hover {
+      background: #e60000;
+    }
+
+    #title {
+      padding-top: 100px;
+      font-size: 32px;
+      font-weight: 700;
+      color: #003bcc;
+    }
+
+    #buttons {
+      margin-top: 40px;
+    }
+
+    .ritualBtn {
+      padding: 12px 26px;
+      margin: 10px;
+      font-size: 16px;
+      border-radius: 10px;
+      border: none;
+      color: white;
+      cursor: pointer;
+      font-weight: 600;
+      transition: 0.2s;
+    }
+
+    .gm { background: #0080ff; }
+    .gn { background: #6639f4; }
+    .sleep { background: #333; }
+
+    .gm:hover { background: #0067cc; }
+    .gn:hover { background: #512ec2; }
+    .sleep:hover { background: #000; }
+
+    #status {
+      margin-top: 30px;
+      font-size: 18px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ✅ Wallet Connect Bar -->
+  <div id="walletBar">
+    <button id="connectBtn" class="walletBtn">Connect Wallet</button>
+
+    <div id="walletMenu">
+      <div id="walletAddr" style="font-size: 14px; margin-bottom: 10px;"></div>
+      <button id="disconnectBtn">Disconnect</button>
+    </div>
+  </div>
+
+  <!-- ✅ Title -->
+  <div id="title">GM Ritual Dashboard ⚡</div>
+
+  <!-- ✅ Buttons -->
+  <div id="buttons">
+    <button class="ritualBtn gm" onclick="ritual('GM')">GM Ritual 🚀</button>
+    <button class="ritualBtn gn" onclick="ritual('GN')">GN Ritual 🌙</button>
+    <button class="ritualBtn sleep" onclick="ritual('GoSleep')">GoSleep Ritual 😴</button>
+  </div>
+
+  <!-- ✅ Status -->
+  <div id="status"></div>
+
+  <!-- ✅ Script -->
+  <script type="module">
+    import { ethers } from "https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.1/ethers.min.js";
+
+    const contractAddress = "0x725Ccb4ddCB715f468b301395Dfd1b1efDb5308A";
+
+    const abi = [
+      "function performRitual(string newMessage) payable",
+      "function fee() view returns (uint256)"
+    ];
+
+    let provider = null;
+    let signer = null;
+    let connectedAddress = null;
+
+    const connectBtn = document.getElementById("connectBtn");
+    const walletMenu = document.getElementById("walletMenu");
+    const walletAddr = document.getElementById("walletAddr");
+    const disconnectBtn = document.getElementById("disconnectBtn");
+    const statusBox = document.getElementById("status");
+
+    function shortAddr(addr) {
+      return addr.slice(0, 6) + "..." + addr.slice(-4);
+    }
+
+    function updateUI() {
+      if (!connectedAddress) {
+        connectBtn.innerText = "Connect Wallet";
+        walletMenu.style.display = "none";
       } else {
-        connectedAddress = accounts[0];
-        provider = new ethers.BrowserProvider(window.ethereum);
-        signer = await provider.getSigner();
-        statusBox.innerText = "🔗 Connected!";
+        connectBtn.innerText = "✅ " + shortAddr(connectedAddress);
+        walletMenu.style.display = "block";
+        walletAddr.innerText = shortAddr(connectedAddress);
       }
-      updateUI();
-    });
-  }
-
-  window.ritual = async function (msg) {
-    if (!signer) return alert("Connect wallet first!");
-
-    const contract = new ethers.Contract(contractAddress, abi, signer);
-    const fee = await contract.fee();
-
-    try {
-      statusBox.innerText = "⏳ Sending ritual...";
-      const tx = await contract.performRitual(msg, { value: fee });
-      await tx.wait();
-      statusBox.innerText = "✅ Ritual sent: " + msg;
-    } catch (err) {
-      console.log(err);
-      statusBox.innerText = "❌ Ritual failed";
     }
-  };
-</script>
+
+    connectBtn.onclick = async function () {
+      try {
+        if (!window.ethereum) return alert("Install MetaMask or Base Wallet.");
+        provider = new ethers.BrowserProvider(window.ethereum);
+        const accounts = await ethereum.request({ method: "eth_requestAccounts" });
+        signer = await provider.getSigner();
+        connectedAddress = accounts[0];
+
+        statusBox.innerText = "🔗 Connected";
+        updateUI();
+      } catch (err) {
+        console.error(err);
+        alert("Failed to connect wallet");
+      }
+    };
+
+    disconnectBtn.onclick = function () {
+      provider = null;
+      signer = null;
+      connectedAddress = null;
+
+      statusBox.innerText = "🔌 Disconnected";
+      updateUI();
+    };
+
+    if (window.ethereum) {
+      window.ethereum.on("accountsChanged", async (accounts) => {
+        if (accounts.length === 0) {
+          connectedAddress = null;
+          signer = null;
+          statusBox.innerText = "🔌 Wallet disconnected";
+        } else {
+          provider = new ethers.BrowserProvider(window.ethereum);
+          signer = await provider.getSigner();
+          connectedAddress = accounts[0];
+        }
+        updateUI();
+      });
+    }
+
+    window.ritual = async function (msg) {
+      if (!signer) return alert("Connect wallet first!");
+
+      const contract = new ethers.Contract(contractAddress, abi, signer);
+
+      try {
+        const fee = await contract.fee();
+        statusBox.innerText = "⏳ Sending ritual...";
+        
+        const tx = await contract.performRitual(msg, { value: fee });
+        await tx.wait();
+
+        statusBox.innerText = "✅ Ritual Sent: " + msg;
+      } catch (err) {
+        console.error(err);
+        statusBox.innerText = "❌ Ritual Failed";
+      }
+    };
+  </script>
+
+</body>
+</html>
