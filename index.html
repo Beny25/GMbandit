@@ -1,186 +1,195 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>GM Bandit Ritual | Base</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-
-  <!-- WalletConnect Modal + Ethers.js -->
-  <script src="https://unpkg.com/@walletconnect/modal@2.6.2/dist/index.umd.js"></script>
-  <script src="https://unpkg.com/ethers@6.6.0/dist/ethers.umd.min.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GM Bandit</title>
 
   <style>
     body {
       margin: 0;
+      padding: 0;
       font-family: Arial, sans-serif;
-      background: linear-gradient(135deg,#ffffff,#dff0ff);
+      background: linear-gradient(180deg, #0e172a, #1e293b, #334155);
+      color: #f8fafc;
       text-align: center;
+    }
+    header {
       padding: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
-
-    h1 {
-      font-size: 28px;
-      font-weight: bold;
-      margin-bottom: 10px;
+    #logo {
+      font-size: 26px;
+      font-weight: 700;
     }
-
-    .address-box {
-      display: inline-block;
-      background: #0066ff;
-      color: white;
+    #connectButton, #disconnectButton {
       padding: 10px 18px;
-      border-radius: 10px;
+      border-radius: 8px;
       cursor: pointer;
-      margin-bottom: 20px;
+      border: none;
+      font-size: 15px;
+      font-weight: 600;
+      transition: 0.2s;
     }
-
-    .dropdown {
-      background: white;
-      padding: 12px;
-      border-radius: 10px;
-      border: 1px solid #ccc;
-      margin-top: 5px;
+    #connectButton {
+      background: #3b82f6;
+      color: white;
+    }
+    #connectButton:hover {
+      background: #2563eb;
+    }
+    #disconnectButton {
+      background: #ef4444;
+      color: white;
+      margin-left: 10px;
       display: none;
     }
-
-    button {
-      font-size: 18px;
-      padding: 12px 22px;
-      margin: 10px;
-      border-radius: 10px;
-      border: none;
-      cursor: pointer;
-      color: white;
-      font-weight: bold;
+    #main-buttons {
+      margin-top: 100px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      width: 80%;
+      max-width: 400px;
+      margin-left: auto;
+      margin-right: auto;
     }
-
-    .gm-btn { background:#007bff; }
-    .gn-btn { background:#7b00ff; }
-    .sleep-btn { background:#333333; }
-
-    .result {
-      margin-top: 20px;
-      font-size: 20px;
-      font-weight: bold;
-      color: red;
+    .action-btn {
+      padding: 15px;
+      border-radius: 10px;
+      background: #475569;
+      color: white;
+      cursor: pointer;
+      font-size: 18px;
+      font-weight: 600;
+      border: none;
+      transition: 0.2s;
+    }
+    .action-btn:hover {
+      background: #64748b;
     }
   </style>
 </head>
+
 <body>
-
-  <h1>GM Ritual Dashboard ⚡</h1>
-
-  <!-- Wallet UI -->
-  <div id="walletSection">
-    <button id="connectBtn" style="background:#007bff;color:white;">Connect Wallet</button>
-
-    <div id="walletBox" style="display:none;">
-      <div class="address-box" onclick="toggleDropdown()">
-        ✅ <span id="walletAddrShort">0x...</span>
-      </div>
-
-      <div id="dropdownMenu" class="dropdown">
-        <div id="walletAddrFull" style="margin-bottom:10px;font-weight:bold;"></div>
-        <button style="background:#ff4444;width:100%;" onclick="disconnectWallet()">Disconnect</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Ritual Buttons -->
+<header>
+  <div id="logo">GM Ritual</div>
   <div>
-    <button class="gm-btn" onclick="ritual('GM')">GM Ritual 🚀</button>
-    <button class="gn-btn" onclick="ritual('GN')">GN Ritual 🌙</button>
-    <button class="sleep-btn" onclick="ritual('GoSleep')">GoSleep Ritual 😴</button>
+    <button id="connectButton">Connect Wallet</button>
+    <button id="disconnectButton">Disconnect</button>
   </div>
+</header>
 
-  <div id="result" class="result"></div>
+<div id="main-buttons">
+  <button class="action-btn" id="gmBtn">GM 🌞</button>
+  <button class="action-btn" id="gnBtn">GN 🌙</button>
+  <button class="action-btn" id="sleepBtn">Go Sleep 😴</button>
+  <button class="action-btn" onclick="window.location='/deploy'">Deploy Ritual Contract 🔮</button>
+</div>
 
-  <script>
-    const projectId = "9edbc818144415c5ac238d7d71ae923c"; // Demo ID, boleh pake
-    let provider = null;
-    let signer = null;
-    let walletAddress = "";
+<script src="https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2/dist/umd/index.min.js"></script>
 
-    const CONTRACT_ADDRESS = "0x725Ccb4ddCB715f468b301395Dfd1b1efDb5308A";
-    const CONTRACT_ABI = [
-      "function performRitual(string calldata message) external"
-    ];
+<script type="module">
+import EthereumProvider from "https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2/dist/umd/index.js";
 
-    // Toggle dropdown menu (Disconnect)
-    function toggleDropdown() {
-      const menu = document.getElementById("dropdownMenu");
-      menu.style.display = menu.style.display === "block" ? "none" : "block";
-    }
+let provider = null;
+let signerAddress = null;
 
-    // Connect Wallet using WalletConnect
-    async function connectWallet() {
-      const modal = new WalletConnectModal({
-        projectId,
-        themeMode: "dark",
-        explorerRecommendedWalletIds: "ALL",
-      });
+// ✅ Chain config
+const BASE_CHAIN_ID = 8453;
+const CONTRACT_ADDRESS = "0x725Ccb4ddCB715f468b301395Dfd1b1efDb5308A";
+const ABI = [
+  {
+    "inputs": [{"internalType":"string","name":"newMessage","type":"string"}],
+    "name":"performRitual",
+    "outputs":[],
+    "stateMutability":"payable",
+    "type":"function"
+  }
+];
 
-      try {
-        const session = await modal.openModal();
+// ✅ Connect Wallet
+async function connectWallet() {
+  try {
+    provider = await EthereumProvider.init({
+      projectId: "a3a3ba8ba4eaa7f69d0488d76a84b3df",
+      chains: [BASE_CHAIN_ID],
+      methods: ["eth_sendTransaction", "personal_sign", "eth_signTypedData"],
+      showQrModal: true,
+    });
 
-        if (!session) {
-          alert("Connection canceled.");
-          return;
-        }
+    await provider.connect();
 
-        walletAddress = session.namespaces.eip155.accounts[0].split(":")[2];
+    const accounts = await provider.request({ method: "eth_accounts" });
+    signerAddress = accounts[0];
 
-        provider = new ethers.BrowserProvider({
-          request: async (args) => modal.rpcRequest(args),
-        });
+    document.getElementById("connectButton").innerText =
+      signerAddress.substring(0, 6) + "..." + signerAddress.substring(signerAddress.length - 4);
 
-        signer = await provider.getSigner();
+    document.getElementById("disconnectButton").style.display = "inline-block";
 
-        // UI Update
-        document.getElementById("connectBtn").style.display = "none";
-        document.getElementById("walletBox").style.display = "block";
-        document.getElementById("walletAddrShort").textContent =
-          walletAddress.slice(0, 6) + "..." + walletAddress.slice(-4);
-        document.getElementById("walletAddrFull").textContent = walletAddress;
+  } catch (err) {
+    console.log("Connect error:", err);
+    alert("Failed to connect: " + err.message);
+  }
+}
 
-      } catch (err) {
-        alert("Wallet connection failed!");
-        console.log(err);
-      }
-    }
+// ✅ Disconnect wallet
+function disconnectWallet() {
+  try {
+    provider.disconnect();
+  } catch (e) {}
+  provider = null;
+  signerAddress = null;
 
-    // Disconnect
-    function disconnectWallet() {
-      provider = null;
-      signer = null;
-      walletAddress = "";
+  document.getElementById("connectButton").innerText = "Connect Wallet";
+  document.getElementById("disconnectButton").style.display = "none";
+}
 
-      document.getElementById("walletBox").style.display = "none";
-      document.getElementById("connectBtn").style.display = "block";
-    }
+// ✅ Ritual sender
+async function sendRitual(message) {
+  if (!provider || !signerAddress) {
+    alert("Connect wallet first!");
+    return;
+  }
 
-    // Ritual Function
-    async function ritual(type) {
-      if (!signer) {
-        alert("Connect wallet first!");
-        return;
-      }
+  const tx = {
+    from: signerAddress,
+    to: CONTRACT_ADDRESS,
+    data: encodePerformRitual(message),
+    value: "0x00000000000000001", // very low fee just example
+  };
 
-      const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+  try {
+    const result = await provider.request({
+      method: "eth_sendTransaction",
+      params: [tx],
+    });
 
-      try {
-        const tx = await contract.performRitual(type);
-        document.getElementById("result").style.color = "green";
-        document.getElementById("result").textContent = "✅ Ritual Sent: " + tx.hash;
-      } catch (err) {
-        console.error(err);
-        document.getElementById("result").style.color = "red";
-        document.getElementById("result").textContent = "❌ Ritual Failed!";
-      }
-    }
-        
-    document.getElementById("connectBtn").addEventListener("click", connectWallet);
-  </script>
+    alert("Tx sent! ✅\nHash: " + result);
+  } catch (err) {
+    alert("Tx failed: " + err.message);
+  }
+}
+
+// ✅ Encode ABI
+function encodePerformRitual(msg) {
+  const iface = new ethers.Interface(ABI);
+  return iface.encodeFunctionData("performRitual", [msg]);
+}
+
+document.getElementById("connectButton").onclick = connectWallet;
+document.getElementById("disconnectButton").onclick = disconnectWallet;
+
+document.getElementById("gmBtn").onclick = () => sendRitual("GM Ritual Initiated 🌞");
+document.getElementById("gnBtn").onclick = () => sendRitual("GN Ritual Initiated 🌙");
+document.getElementById("sleepBtn").onclick = () => sendRitual("User going to sleep 😴");
+
+</script>
+
+<script src="https://cdn.ethers.io/lib/ethers-6.3.0.umd.min.js"></script>
 
 </body>
 </html>
