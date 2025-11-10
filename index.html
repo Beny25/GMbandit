@@ -1,38 +1,65 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>GM Ritual Dashboard</title>
 
-<title>GM Ritual Dashboard</title>
+    <!-- WalletConnect UMD -->
+    <script src="https://unpkg.com/@walletconnect/modal@2.5.2/dist/index.umd.js"></script>
 
-<script src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-<script src="https://unpkg.com/@walletconnect/web3modal@1.9.12/dist/index.min.js"></script>
+    <style>
+        body {
+            background: #11121a;
+            color: #fff;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 25px;
+            text-align: center;
+        }
 
-<style>
-body {
-  background:#0f0f1b;
-  margin:0;
-  padding:20px;
-  text-align:center;
-  color:white;
-  font-family:Arial, sans-serif;
-}
-button {
-  padding:14px 20px;
-  border-radius:10px;
-  border:none;
-  cursor:pointer;
-  margin:10px;
-  font-size:18px;
-}
-#connectBtn { background:#1E5EFF; color:white; }
-#disconnectBtn { background:red; display:none; }
-.ritual { padding:18px 26px; border-radius:12px; font-size:20px; margin:10px; }
-.gm{background:#1d7bff;}
-.gn{background:#8d36ff;}
-.sl{background:#333;}
-</style>
+        h1 {
+            font-size: 32px;
+            margin-top: 40px;
+            font-weight: bold;
+        }
 
+        button {
+            padding: 15px 25px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            margin: 15px 0;
+            font-size: 18px;
+            width: 85%;
+            max-width: 400px;
+        }
+
+        #connectBtn {
+            background: #005cff;
+            color: white;
+        }
+
+        .gmBtn {
+            background: #1c8eff;
+        }
+
+        .gnBtn {
+            background: #a061ff;
+        }
+
+        .sleepBtn {
+            background: #3a3a3a;
+        }
+
+        .deployLink {
+            margin-top: 30px;
+            display: block;
+            color: #7dc7ff;
+            text-decoration: none;
+            font-size: 18px;
+        }
+    </style>
 </head>
 
 <body>
@@ -40,63 +67,55 @@ button {
 <h1>GM Ritual Dashboard ⚡</h1>
 
 <button id="connectBtn">Connect Wallet</button>
-<button id="disconnectBtn">Disconnect</button>
 
-<div style="margin-top:40px;">
-  <button onclick="runRitual('GM')" class="ritual gm">GM Ritual 🌞</button>
-  <button onclick="runRitual('GN')" class="ritual gn">GN Ritual 🌙</button>
-  <button onclick="runRitual('SLEEP')" class="ritual sl">GoSleep Ritual 😴</button>
-</div>
+<button class="gmBtn" onclick="doRitual('GM')">GM Ritual 🌞</button>
+<button class="gnBtn" onclick="doRitual('GN')">GN Ritual 🌙</button>
+<button class="sleepBtn" onclick="doRitual('SLEEP')">GoSleep Ritual 😴</button>
+
+<a class="deployLink" href="/deploy">Deploy your contract 🚀</a>
 
 <script>
-let provider;
-let signer;
-let web3Modal = new window.Web3Modal.default({
-  cacheProvider: false,
-  providerOptions: {
-    walletconnect: {
-      package: window.WalletConnectProvider.default,
-      options: {
-        rpc: {
-          8453: "https://mainnet.base.org"
-        },
-      }
+
+    const projectId = "2a3dfe7333d2ebd1e71b6d43f2f3e142";
+
+    let provider = null;
+    let walletAddress = null;
+
+    async function connectWallet() {
+        try {
+            const modal = new window.WalletConnectModal.default({
+                projectId,
+                themeMode: "dark"
+            });
+
+            provider = await modal.connect();
+
+            const accounts = await provider.request({ method: "eth_accounts" });
+            walletAddress = accounts[0];
+
+            document.getElementById("connectBtn").innerHTML =
+                "✅ Connected " + walletAddress.slice(0, 5) + "..." + walletAddress.slice(-4);
+
+            alert("Wallet connected: " + walletAddress);
+
+        } catch (err) {
+            alert("Connection failed: " + err.message);
+            console.log(err);
+        }
     }
-  }
-});
 
-async function connectWallet() {
-  try {
-    const instance = await web3Modal.connect();
-    provider = new ethers.providers.Web3Provider(instance);
-    signer = provider.getSigner();
-    const addr = await signer.getAddress();
+    document.getElementById("connectBtn").onclick = connectWallet;
 
-    document.getElementById("connectBtn").textContent = addr.slice(0,6)+"..."+addr.slice(-4);
-    document.getElementById("disconnectBtn").style.display = "inline-block";
+    async function doRitual(type) {
+        if (!walletAddress) {
+            alert("Connect wallet first!");
+            return;
+        }
 
-  } catch (e) {
-    alert("Failed: " + e.message);
-  }
-}
-
-function disconnectWallet() {
-  if (web3Modal.clearCachedProvider) web3Modal.clearCachedProvider();
-  signer = null;
-  provider = null;
-  document.getElementById("connectBtn").textContent = "Connect Wallet";
-  document.getElementById("disconnectBtn").style.display = "none";
-}
-
-function runRitual(msg) {
-  if (!signer) { alert("Connect wallet first!"); return; }
-  alert(msg + " ritual executed!");
-}
-
-document.getElementById("connectBtn").onclick = connectWallet;
-document.getElementById("disconnectBtn").onclick = disconnectWallet;
+        alert(type + " ritual triggered! (dummy)");
+    }
 
 </script>
 
 </body>
-</html>
+  </html>
