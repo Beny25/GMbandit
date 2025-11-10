@@ -1,91 +1,135 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GMbandit Ritual</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: linear-gradient(135deg, #0052ff, #00b4ff);
-      color: white;
-      text-align: center;
-      padding: 40px;
-    }
-    button {
-      padding: 12px 25px;
-      background: white;
-      color: #0052ff;
-      border-radius: 10px;
-      font-size: 16px;
-      cursor: pointer;
-      border: none;
-      margin: 10px;
-    }
-    button:hover {
-      opacity: 0.85;
-    }
-    input {
-      padding: 10px;
-      width: 70%;
-      border-radius: 8px;
-      border: 1px solid #eee;
-      margin-top: 15px;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GMbandit • Onchain Rituals</title>
+
+<style>
+  body {
+    margin: 0;
+    padding: 0;
+    background: linear-gradient(180deg, #e8f1ff, #ffffff);
+    font-family: Arial, sans-serif;
+    color: #000;
+    text-align: center;
+  }
+
+  h1 {
+    margin-top: 40px;
+    font-size: 32px;
+    font-weight: 700;
+  }
+
+  .container {
+    max-width: 400px;
+    margin: auto;
+    padding: 20px;
+  }
+
+  button {
+    width: 100%;
+    padding: 14px;
+    margin: 10px 0;
+    background: #ffffff;
+    border: 2px solid #d0d0d0;
+    border-radius: 8px;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.2s ease-in-out;
+  }
+
+  button:hover {
+    background: #f2f2f2;
+  }
+
+  #status {
+    margin-top: 20px;
+    font-size: 16px;
+    padding: 12px;
+  }
+
+  input {
+    width: 100%;
+    padding: 12px;
+    margin-top: 10px;
+    border: 2px solid #d0d0d0;
+    border-radius: 8px;
+    font-size: 16px;
+  }
+</style>
 </head>
+
 <body>
 
-  <h1>🔥 8GMbandit Onchain Ritual on base 🔥</h1>
-  <p>The simplest onchain ritual experiment on Base 🔵</p>
+<h1>GMbandit • Rituals Onchain</h1>
 
-  <button id="connectBtn">Connect Wallet</button>
+<div class="container">
 
-  <br><br>
+  <button id="connect">Connect Wallet</button>
 
-  <input id="msgInput" placeholder="Type your ritual message (GM/GN/???)"/>
+  <button onclick="ritual('GM! ☀️')">GM Ritual</button>
+  <button onclick="ritual('GN! 🌙')">GN Ritual</button>
+  <button onclick="ritual('Go Sleep 😴')">GoSleep Ritual</button>
 
-  <br><br>
+  <input type="text" id="customMsg" placeholder="Write your message...">
+  <button onclick="ritualCustom()">Send Custom Ritual</button>
 
-  <button id="ritualBtn">Perform Ritual</button>
+  <button onclick="deployNew()">Deploy Your Contract</button>
 
-  <p id="status"></p>
+  <div id="status"></div>
 
-<script>
-  let provider, signer;
-  const contractAddress = "0x725Ccb4ddCB715f468b301395Dfd1b1efDb5308A";
+</div>
 
-  const ABI = [
-    "function performRitual(string calldata newMessage) payable"
+<script type="module">
+  import { ethers } from "https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.1/ethers.min.js";
+
+  let provider;
+  let signer;
+
+  const contractAddress = "0x725Ccb4ddCB715f468b301395Dfd1b1efDb5308A"; // ✅ GMbanditV2
+
+  const abi = [
+    "function performRitual(string newMessage) payable",
+    "function fee() view returns (uint256)"
   ];
 
-  document.getElementById("connectBtn").onclick = async () => {
+  document.getElementById("connect").onclick = async function () {
     if (!window.ethereum) {
-      alert("No wallet found. Use Base wallet or MetaMask");
+      alert("Install wallet first!");
       return;
     }
+    await ethereum.request({ method: "eth_requestAccounts" });
     provider = new ethers.BrowserProvider(window.ethereum);
     signer = await provider.getSigner();
-    document.getElementById("connectBtn").innerText = "Wallet connected ✅";
+    document.getElementById("status").innerHTML = "✅ Wallet Connected";
   };
 
-  document.getElementById("ritualBtn").onclick = async () => {
+  async function ritual(msg) {
     if (!signer) return alert("Connect wallet first!");
-    const message = document.getElementById("msgInput").value.trim() || "GM Ritual!";
-    const fee = "330000000000"; // 0.00000033 ETH
-    try {
-      document.getElementById("status").innerText = "⏳ Sending ritual TX...";
-      const contract = new ethers.Contract(contractAddress, ABI, signer);
-      const tx = await contract.performRitual(message, { value: fee });
-      await tx.wait();
-      document.getElementById("status").innerText = "✅ Ritual completed!";
-    } catch (err) {
-      document.getElementById("status").innerText = "❌ Error: " + err.message;
-    }
-  };
-</script>
 
-<script src="https://cdn.jsdelivr.net/npm/ethers@6.7.0/dist/ethers.min.js"></script>
+    const contract = new ethers.Contract(contractAddress, abi, signer);
+    const fee = await contract.fee();
+
+    const tx = await contract.performRitual(msg, { value: fee });
+    document.getElementById("status").innerHTML = "⏳ Sending ritual...";
+
+    await tx.wait();
+    document.getElementById("status").innerHTML = "✅ Ritual complete!";
+  }
+
+  async function ritualCustom() {
+    const msg = document.getElementById("customMsg").value;
+    if (!msg) return alert("Write something!");
+    ritual(msg);
+  }
+
+  async function deployNew() {
+    window.location.href = "https://basescan.org/address/0xb9C0b964E223D0058cdFEB445B4506415117b055";
+  }
+
+</script>
 
 </body>
 </html>
