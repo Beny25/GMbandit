@@ -1,119 +1,84 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Deploy Contract</title>
+<title>Deploy GMbanditV2</title>
 
 <script src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-<script src="https://unpkg.com/@rainbow-me/rainbowkit-connector@1.0.0/dist/rkc.js"></script>
+<script src="https://unpkg.com/@walletconnect/web3modal@1.9.12/dist/index.min.js"></script>
 
 <style>
-body {
-  margin: 0;
-  padding: 30px 20px;
-  background:#0f0f1b;
-  color:white;
-  font-family: Arial, sans-serif;
-  text-align:center;
-}
-.box {
-  background:#1a1a2e;
-  padding:20px;
-  border-radius:10px;
-  max-width:400px;
-  margin:auto;
-}
-input {
-  width:90%;
-  padding:14px;
-  font-size:16px;
-  border-radius:10px;
-  border:none;
-  margin-bottom:15px;
-}
-.deploy-btn {
-  background:#327cff;
-  border:none;
-  width:90%;
-  padding:15px;
-  font-size:18px;
-  border-radius:12px;
-  cursor:pointer;
-}
-.back {
-  margin-top:20px;
-  color:#8ab4ff;
-  text-decoration:none;
-}
+body {background:#0f0f1b;color:white;font-family:Arial;text-align:center;padding:20px;}
+.box {background:#1a1a2e;padding:20px;border-radius:10px;max-width:400px;margin:auto;}
+input {width:90%;padding:14px;font-size:16px;border-radius:10px;border:none;margin-bottom:15px;}
+button {padding:14px 20px;border-radius:10px;margin:10px;border:none;font-size:18px;cursor:pointer;}
+#connectBtn{background:#1E5EFF;color:white;}
+#disconnectBtn{background:red;display:none;}
+.deploy{background:#327cff;width:90%;}
+.back{color:#8ab4ff;text-decoration:none;}
 </style>
 
 </head>
+
 <body>
 
-<h1>Deploy your GMbanditV2 Contract</h1>
-<p>Deploy private version of ritual contract to Base Mainnet</p>
+<h2>Deploy your GMbanditV2 Contract</h2>
+<p>Deploy private version on Base Mainnet</p>
 
-<button id="connectButton" style="padding:12px 20px;background:#1e5eff;border:none;border-radius:12px;color:white;font-size:18px;">
-  Connect Wallet
-</button>
-
-<button id="disconnectButton" style="display:none;margin-top:15px;background:red;color:white;border:none;padding:10px 18px;border-radius:10px;">
-  Disconnect
-</button>
+<button id="connectBtn">Connect Wallet</button>
+<button id="disconnectBtn">Disconnect</button>
 
 <div class="box">
-  <input id="ownerAddr" placeholder="Owner Address (your wallet)">
-  <input id="collectorAddr" placeholder="Collector Address (receiver wallet)">
-
-  <button class="deploy-btn" onclick="deployContract()">Deploy Now 🚀</button>
+  <input id="ownerAddr" placeholder="Owner Address">
+  <input id="collectorAddr" placeholder="Collector Address">
+  <button class="deploy" onclick="deployContract()">Deploy Now 🚀</button>
 </div>
 
 <a href="/" class="back">← Back to Dashboard</a>
 
 <script>
-let provider = null;
-let signer = null;
+let provider, signer;
 
-async function connectWallet() {
-  try {
-    provider = await window.RKC.connect({
-      projectId: "dbb8f3da5c5b5f3ac97a6ac3cb75e359",
-      chains: [{
-        id: 8453,
-        name: "Base",
-        rpcUrls: ["https://mainnet.base.org"]
-      }]
-    });
+let web3Modal = new window.Web3Modal.default({
+  cacheProvider:false,
+  providerOptions:{
+    walletconnect:{
+      package: window.WalletConnectProvider.default,
+      options:{ rpc:{ 8453: "https://mainnet.base.org" } }
+    }
+  }
+});
 
-    const ethersProvider = new ethers.providers.Web3Provider(provider);
-    signer = ethersProvider.getSigner();
-    let address = await signer.getAddress();
-    document.getElementById("connectButton").innerText = address.substring(0,6)+"..."+address.slice(-4);
-    document.getElementById("disconnectButton").style.display = "inline-block";
-  } catch(e) {
-    alert("Connection failed: " + e.message);
+async function connectWallet(){
+  try{
+    const instance = await web3Modal.connect();
+    provider = new ethers.providers.Web3Provider(instance);
+    signer = provider.getSigner();
+    let addr = await signer.getAddress();
+    document.getElementById("connectBtn").textContent = addr.slice(0,6)+"..."+addr.slice(-4);
+    document.getElementById("disconnectBtn").style.display="inline-block";
+  }catch(e){
+    alert("Failed: "+e.message);
   }
 }
 
-function disconnectWallet() {
-  window.RKC.disconnect();
-  signer = null;
-  document.getElementById("connectButton").innerText = "Connect Wallet";
-  document.getElementById("disconnectButton").style.display = "none";
+function disconnectWallet(){
+  if(web3Modal.clearCachedProvider) web3Modal.clearCachedProvider();
+  signer=null;
+  provider=null;
+  document.getElementById("connectBtn").textContent="Connect Wallet";
+  document.getElementById("disconnectBtn").style.display="none";
 }
 
-async function deployContract() {
-  if (!signer) {
-    alert("Connect wallet first!");
-    return;
-  }
-
-  alert("Deploy feature disabled for now (dummy).");
+async function deployContract(){
+  if(!signer){ alert("Connect wallet first!"); return;}
+  alert("Deploy disabled (placeholder).");
 }
 
-document.getElementById("connectButton").onclick = connectWallet;
+document.getElementById("connectBtn").onclick = connectWallet;
+document.getElementById("disconnectBtn").onclick = disconnectWallet;
+
 </script>
 
 </body>
-  </html>
+</html>
