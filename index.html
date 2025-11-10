@@ -1,232 +1,210 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GM Ritual Dashboard 🔥</title>
-
-<style>
+  <meta charset="UTF-8" />
+  <title>GM Bandit — Ritual on Base</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
     body {
-        margin: 0;
-        padding: 0;
-        background: linear-gradient(to bottom, #ffffff, #e3f0ff);
-        font-family: Arial, sans-serif;
-        text-align: center;
+      margin: 0;
+      padding: 0;
+      font-family: "Inter", sans-serif;
+      background: linear-gradient(135deg, #ffffff, #f1f5ff);
+      text-align: center;
+    }
+
+    header {
+      width: 100%;
+      padding: 15px;
+      background: #ffffff;
+      border-bottom: 1px solid #ddd;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-sizing: border-box;
+    }
+
+    #addressDisplay {
+      font-size: 14px;
+      color: #333;
+      font-weight: 500;
+    }
+
+    .main-container {
+      margin-top: 60px;
     }
 
     h1 {
-        margin-top: 50px;
-        font-size: 32px;
-        color: #004aad;
-        font-weight: 700;
+      font-size: 36px;
+      color: #0052ff;
+      margin-bottom: 10px;
     }
 
-    #walletBox {
-        position: absolute;
-        top: 20px;
-        right: 20px;
+    h2 {
+      font-weight: 400;
+      color: #555;
+    }
+
+    button {
+      margin: 10px;
+      padding: 15px 30px;
+      font-size: 18px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+      transition: 0.2s;
     }
 
     #connectBtn {
-        background: #0066ff;
-        color: white;
-        border: none;
-        padding: 12px 18px;
-        border-radius: 8px;
-        cursor: pointer;
-        font-size: 16px;
-        font-weight: 600;
-    }
-
-    #connectBtn:hover {
-        background: #004bd1;
-    }
-
-    #walletMenu {
-        display: none;
-        position: absolute;
-        top: 60px;
-        right: 0;
-        width: 200px;
-        background: #ffffff;
-        border-radius: 10px;
-        padding: 10px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-    }
-
-    #walletAddr {
-        font-size: 15px;
-        margin: 10px 0;
+      background: #0052ff;
+      color: white;
     }
 
     #disconnectBtn {
-        background: #ff4b4b;
-        color: white;
-        width: 100%;
-        border: none;
-        padding: 10px;
-        border-radius: 8px;
-        cursor: pointer;
-        margin-top: 10px;
-        font-weight: 600;
+      background: #ff4444;
+      color: white;
+      display: none;
     }
 
-    .ritualBtn {
-        padding: 12px 26px;
-        margin: 15px;
-        font-size: 18px;
-        border: none;
-        border-radius: 10px;
-        cursor: pointer;
-        font-weight: 600;
-        color: white;
+    .action-button {
+      background: #202020;
+      color: white;
     }
 
-    .gm { background: #007bff; }
-    .gm:hover { background: #0066d6; }
-
-    .gn { background: #7b2bff; }
-    .gn:hover { background: #6622d1; }
-
-    .sleep { background: #2c2c2c; }
-    .sleep:hover { background: #000000; }
+    #deployBtn {
+      background: #0a84ff;
+      color: white;
+    }
 
     #status {
-        margin-top: 40px;
-        font-size: 20px;
-        font-weight: 600;
-        color: #333;
+      margin-top: 15px;
+      font-size: 15px;
+      color: #333;
     }
-
-</style>
+  </style>
 </head>
+
 <body>
 
-<h1>GM Ritual Dashboard ⚡</h1>
+<header>
+  <div style="font-weight:700;font-size:18px;color:#0052ff;">GM Bandit</div>
+  <button id="connectBtn">Connect Wallet</button>
+  <button id="disconnectBtn">Disconnect</button>
+</header>
 
-<div id="walletBox">
-    <button id="connectBtn">Connect Wallet</button>
-    <div id="walletMenu">
-        <div id="walletAddr">0x0000...</div>
-        <button id="disconnectBtn">Disconnect</button>
-    </div>
+<div class="main-container">
+  <h1>GM Bandit Ritual</h1>
+  <h2>Do your daily onchain ritual on Base</h2>
+
+  <button class="action-button" onclick="sendRitual('GM')">GM Ritual 🙏</button>
+  <button class="action-button" onclick="sendRitual('GN')">GN Ritual 🌙</button>
+  <button class="action-button" onclick="sendRitual('GoSleep')">GoSleep Ritual 😴</button>
+
+  <br /><br />
+
+  <button id="deployBtn" onclick="window.location.href='https://gm-bandit.vercel.app/deploy'">
+    Deploy Smart Contract
+  </button>
+
+  <div id="status"></div>
 </div>
 
-<div style="margin-top: 90px;">
-    <button class="ritualBtn gm" onclick="deploy()">Deploy Ritual 🔮</button>
-</div>
+<script>
+  const FACTORY = "0xb9C0b964E223D0058cdFEB445B4506415117b055"; 
 
-<div style="margin-top: 40px;">
-    <button class="ritualBtn gm" onclick="ritual('GM')">GM Ritual 🚀</button>
-    <button class="ritualBtn gn" onclick="ritual('GN')">GN Ritual 🌙</button>
-    <button class="ritualBtn sleep" onclick="ritual('GoSleep')">GoSleep Ritual 😴</button>
-</div>
+  const GMbanditABI = [
+    {
+      "inputs":[{"internalType":"string","name":"newMessage","type":"string"}],
+      "name":"performRitual",
+      "outputs":[],
+      "stateMutability":"payable",
+      "type":"function"
+    }
+  ];
 
-<div id="status"></div>
+  let provider;
+  let signer;
 
-<script type="module">
-import { ethers } from "https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.1/ethers.min.js";
-
-const factoryAddress = "0xb9C0b964E223D0058cdFEB445B4506415117b055";
-
-const factoryABI = [
-  "function deployContract(address owner,address creator,address collector) returns(address)",
-  "event ContractDeployed(address newContract)"
-];
-
-const ritualABI = [
-  "function performRitual(string newMessage) payable",
-  "function fee() view returns (uint256)"
-];
-
-let provider = null;
-let signer = null;
-let connectedAddress = null;
-let activeContract = null;
-
-const connectBtn = document.getElementById("connectBtn");
-const walletMenu = document.getElementById("walletMenu");
-const walletAddr = document.getElementById("walletAddr");
-const disconnectBtn = document.getElementById("disconnectBtn");
-const statusBox = document.getElementById("status");
-
-function shortAddr(addr) {
-  return addr.slice(0, 6) + "..." + addr.slice(-4);
-}
-
-function updateUI() {
-  if (!connectedAddress) {
-    connectBtn.innerText = "Connect Wallet";
-    walletMenu.style.display = "none";
-  } else {
-    connectBtn.innerText = "✅ " + shortAddr(connectedAddress);
-    walletMenu.style.display = "block";
-    walletAddr.innerText = shortAddr(connectedAddress);
+  async function switchToBase() {
+    try {
+      await window.ethereum.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: "0x2105" }],
+      });
+    } catch (err) {
+      if (err.code === 4902) {
+        await window.ethereum.request({
+          method: "wallet_addEthereumChain",
+          params: [
+            {
+              chainId: "0x2105",
+              chainName: "Base Mainnet",
+              rpcUrls: ["https://mainnet.base.org"],
+              nativeCurrency: {
+                name: "ETH",
+                symbol: "ETH",
+                decimals: 18,
+              },
+              blockExplorerUrls: ["https://basescan.org"],
+            },
+          ],
+        });
+      }
+    }
   }
-}
 
-connectBtn.onclick = async function () {
-  try {
-    if (!window.ethereum) return alert("Install MetaMask or Base Wallet.");
-    provider = new ethers.BrowserProvider(window.ethereum);
-    const accounts = await ethereum.request({ method: "eth_requestAccounts" });
-    signer = await provider.getSigner();
-    connectedAddress = accounts[0];
-    updateUI();
-  } catch (err) {
-    alert("Failed to connect wallet");
+  async function connectWallet() {
+    if (!window.ethereum) {
+      alert("MetaMask not found!");
+      return;
+    }
+
+    await switchToBase();
+
+    provider = new ethers.providers.Web3Provider(window.ethereum);
+    await provider.send("eth_requestAccounts", []);
+    signer = provider.getSigner();
+
+    const addr = await signer.getAddress();
+    document.getElementById("connectBtn").style.display = "none";
+    document.getElementById("disconnectBtn").style.display = "inline-block";
+    document.getElementById("status").innerHTML = "✅ Connected: " + addr;
   }
-};
 
-disconnectBtn.onclick = function () {
-  provider = null;
-  signer = null;
-  connectedAddress = null;
-  activeContract = null;
-  statusBox.innerText = "";
-  updateUI();
-};
-
-window.deploy = async function () {
-  if (!signer) return alert("Connect wallet first!");
-
-  const factory = new ethers.Contract(factoryAddress, factoryABI, signer);
-
-  try {
-    statusBox.innerText = "⏳ Deploying new ritual contract...";
-    const tx = await factory.deployContract(
-      connectedAddress,
-      connectedAddress,
-      connectedAddress
-    );
-    const receipt = await tx.wait();
-
-    const event = receipt.logs.find(
-      log => log.fragment && log.fragment.name === "ContractDeployed"
-    );
-    const newAddress = event.args.newContract;
-
-    activeContract = new ethers.Contract(newAddress, ritualABI, signer);
-    statusBox.innerText = "✅ Deployed new contract: " + newAddress;
-  } catch (err) {
-    statusBox.innerText = "❌ Deploy Failed";
+  async function disconnectWallet() {
+    document.getElementById("connectBtn").style.display = "inline-block";
+    document.getElementById("disconnectBtn").style.display = "none";
+    document.getElementById("status").innerHTML = "❌ Wallet disconnected";
   }
-};
 
-window.ritual = async function (msg) {
-  if (!activeContract) return alert("Deploy contract dulu!");
+  async function sendRitual(type) {
+    if (!signer) {
+      document.getElementById("status").innerHTML = "⚠️ Connect your wallet first!";
+      return;
+    }
 
-  try {
-    const fee = await activeContract.fee();
-    statusBox.innerText = "⏳ Sending ritual...";
-    const tx = await activeContract.performRitual(msg, { value: fee });
-    await tx.wait();
-    statusBox.innerText = "✅ Ritual Sent: " + msg;
-  } catch (err) {
-    statusBox.innerText = "❌ Ritual Failed";
+    document.getElementById("status").innerHTML = "⏳ Sending ritual...";
+
+    try {
+      const contract = new ethers.Contract(FACTORY, GMbanditABI, signer);
+      const tx = await contract.performRitual(type, {
+        value: ethers.utils.parseEther("0.00000033"),
+      });
+
+      document.getElementById("status").innerHTML =
+        "✅ Ritual sent! TX: <a href='https://basescan.org/tx/" +
+        tx.hash +
+        "' target='_blank'>" +
+        tx.hash.substring(0, 12) +
+        "...</a>";
+    } catch (err) {
+      document.getElementById("status").innerHTML = "❌ Failed: " + err.message;
+    }
   }
-};
 
+  document.getElementById("connectBtn").onclick = connectWallet;
+  document.getElementById("disconnectBtn").onclick = disconnectWallet;
 </script>
 
 </body>
