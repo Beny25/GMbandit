@@ -1,92 +1,113 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Deploy GMbanditV2</title>
+  <meta charset="utf-8" />
+  <title>Deploy GMbanditV2 • Base</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    body{margin:0;background:#07101a;color:#fff;font-family:Inter,Arial;padding:24px;display:flex;align-items:center;justify-content:center;min-height:100vh}
-    .card{background:#08131a;padding:20px;border-radius:12px;max-width:520px;width:100%}
-    input{width:100%;padding:12px;margin:8px 0;border-radius:8px;border:1px solid #24333f;background:#071a24;color:#fff}
-    .btn{background:#2b6df6;color:#fff;padding:12px 18px;border-radius:10px;border:none;font-weight:700;cursor:pointer;width:100%}
-    a.back{display:inline-block;margin-top:12px;color:#95c3ff;text-decoration:underline}
+    body{margin:0;background:#0e1117;color:#e9eefb;font-family:Inter,system-ui,Arial}
+    .wrap{max-width:780px;margin:48px auto;padding:0 16px}
+    h1{margin:0 0 8px;font-size:34px}
+    .card{background:#111826;border:1px solid #1f2430;border-radius:16px;padding:20px}
+    label{display:block;margin:12px 0 6px;color:#9aa4b2}
+    input{width:100%;padding:12px;border-radius:10px;border:1px solid #283044;background:#0c1424;color:#e9eefb}
+    .row{display:flex;gap:12px;flex-wrap:wrap}
+    button{cursor:pointer;border:0;border-radius:12px;padding:14px 18px;font-weight:700}
+    .primary{background:#2563eb;color:#fff}
+    .ghost{background:#0d1320;color:#cbd5e1;border:1px solid #1e293b}
+    .muted{color:#9aa4b2}
+    .chip{display:inline-flex;gap:8px;background:#0b1324;border:1px solid #1f2a44;padding:10px 12px;border-radius:12px;font-size:14px}
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 </head>
 <body>
+<div class="wrap">
+  <h1>Deploy your GMbanditV2 Contract</h1>
+  <p class="muted">Connect → auto-fill Owner → set Collector → Deploy (Base Mainnet 8453).</p>
+
   <div class="card">
-    <h2>Deploy your GMbanditV2 Contract</h2>
-    <p style="color:#9fb4ce">Deploy a private instance to Base. Use test funds or demo only.</p>
-    <button id="connectBtn" class="btn">Connect Wallet</button>
-    <input id="owner" placeholder="Owner Address (will autofill)" />
-    <input id="collector" placeholder="Collector Address (receiver)" />
-    <div style="height:8px"></div>
-    <button id="deployBtn" class="btn" style="background:#21b887">Deploy Now 🚀</button>
-    <a class="back" href="/">← Back to Dashboard</a>
-    <p id="status" style="color:#9fb4ce;margin-top:10px">Not connected</p>
+    <div style="margin-bottom:12px;">
+      <button id="connectBtn" class="primary">Connect Wallet</button>
+      <span id="addrChip" class="chip" style="display:none;"></span>
+    </div>
+
+    <label>Owner Address (auto)</label>
+    <input id="owner" placeholder="0x…" readonly />
+
+    <label>Collector Address</label>
+    <input id="collector" placeholder="0xCollector…" />
+
+    <div style="margin-top:16px" class="row">
+      <button id="deployBtn" class="primary">Deploy Now 🚀</button>
+      <a href="/" class="ghost" style="text-decoration:none;display:inline-block;padding:14px 18px;">← Back to Dashboard</a>
+    </div>
   </div>
+</div>
 
-  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js?v=1"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js?v=1"></script>
+<script>
+(() => {
+  const BASE_CHAIN_ID_HEX = "0x2105"; // 8453
+  const connectBtn = document.getElementById("connectBtn");
+  const ownerInput = document.getElementById("owner");
+  const collectorInput = document.getElementById("collector");
+  const deployBtn = document.getElementById("deployBtn");
+  const addrChip = document.getElementById("addrChip");
 
-  <script>
-  (function(){
-    const BASE_CHAIN_ID_HEX = '0x2135';
-    const BASE_RPC = 'https://mainnet.base.org';
-    let rawProvider=null, provider=null, signer=null, account=null;
+  let provider, signer, account;
 
-    const connectBtn = document.getElementById('connectBtn');
-    const status = document.getElementById('status');
-    const ownerInput = document.getElementById('owner');
-    const collectorInput = document.getElementById('collector');
-    const deployBtn = document.getElementById('deployBtn');
-
-    function setStatus(t){ status.innerText = t; console.log('[status]',t); }
-
-    async function enableWC(){
-      const WalletConnectProvider = window.WalletConnectProvider.default;
-      if(!WalletConnectProvider) throw new Error('WC provider not available');
-      const wc = new WalletConnectProvider({ rpc:{8453:BASE_RPC}, chainId:8453, qrcode:true });
-      await wc.enable();
-      return wc;
+  async function ensureBase(){
+    const eth = window.ethereum || window.okxwallet || (window.bitkeep && window.bitkeep.ethereum) || window.bitgetwallet;
+    if (!eth) throw new Error("No wallet detected");
+    const current = eth.chainId || (await eth.request({method:"eth_chainId"}));
+    if (current === BASE_CHAIN_ID_HEX) return;
+    try{
+      await eth.request({method:"wallet_switchEthereumChain", params:[{chainId:BASE_CHAIN_ID_HEX}]});
+    }catch(err){
+      if (err && err.code===4902){
+        await eth.request({method:"wallet_addEthereumChain", params:[{
+          chainId:BASE_CHAIN_ID_HEX, chainName:"Base",
+          rpcUrls:["https://mainnet.base.org"],
+          nativeCurrency:{name:"Base Ether",symbol:"ETH",decimals:18},
+          blockExplorerUrls:["https://basescan.org"]
+        }]});
+      } else { throw err; }
     }
+  }
 
-    async function connect(){
-      try {
-        if(window.ethereum){
-          rawProvider = window.ethereum;
-          provider = new ethers.providers.Web3Provider(rawProvider,'any');
-          await rawProvider.request({method:'eth_requestAccounts'});
-        } else {
-          rawProvider = await enableWC();
-          provider = new ethers.providers.Web3Provider(rawProvider,'any');
-        }
-        signer = provider.getSigner();
-        account = await signer.getAddress();
-        ownerInput.value = account;
-        setStatus('Connected: '+account);
-        try {
-          const chain = await rawProvider.request({method:'eth_chainId'});
-          if(chain !== BASE_CHAIN_ID_HEX){
-            await rawProvider.request({method:'wallet_switchEthereumChain', params:[{chainId:BASE_CHAIN_ID_HEX}]});
-            setStatus('Switched to Base');
-          }
-        } catch(e){ console.warn('switch',e); }
-      } catch(e){
-        console.error(e);
-        alert('Connect error: '+(e.message||e));
-      }
+  async function connect(){
+    try{
+      const eth = window.ethereum || window.okxwallet || (window.bitkeep && window.bitkeep.ethereum) || window.bitgetwallet;
+      if (!eth){ alert("Open in MetaMask/OKX/Bitget dApp browser"); return; }
+      await ensureBase();
+      provider = new ethers.providers.Web3Provider(eth, "any");
+      await provider.send("eth_requestAccounts", []);
+      signer = provider.getSigner();
+      account = await signer.getAddress();
+      ownerInput.value = account;
+      addrChip.style.display = "inline-flex";
+      addrChip.textContent = account.slice(0,6)+"…"+account.slice(-4);
+      connectBtn.textContent = "Connected ✅";
+      connectBtn.disabled = true;
+    }catch(e){
+      console.error(e); alert("Connection failed");
     }
+  }
 
-    async function deployContract(){
-      if(!signer) return alert('Connect wallet first');
-      // NOTE: you must provide compiled bytecode & ABI here (we can't compile client-side)
-      alert('Client-side deploy not implemented. Use Hardhat/Alchemy/ethers.js script on server or instruct users how to deploy. This UI is placeholder.');
+  // NOTE: ganti bytecode + ABI deploy sesuai Factory kamu jika nanti mau benar-benar deploy dari UI.
+  // Untuk saat ini tombol akan kasih alert info.
+  async function deployNow(){
+    if (!signer){ await connect(); }
+    const owner = ownerInput.value.trim();
+    const collector = collectorInput.value.trim();
+    if (!ethers.utils.isAddress(owner) || !ethers.utils.isAddress(collector)){
+      alert("Invalid owner/collector address"); return;
     }
+    alert("UI deploy dummy dulu. (Backend/factory deploy bisa ditambah nanti)");
+  }
 
-    connectBtn.addEventListener('click', connect);
-    deployBtn.addEventListener('click', deployContract);
-
-  })();
-  </script>
+  connectBtn.onclick = connect;
+  deployBtn.onclick = deployNow;
+})();
+</script>
 </body>
 </html>
