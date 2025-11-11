@@ -1,205 +1,175 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>GM Ritual • On Base</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <link rel="icon" href="data:," />
-  <style>
-    :root{
-      --bg:#0f1115; --card:#161a22; --text:#e9eefb; --muted:#9aa4b2;
-      --blue:#2563eb; --purple:#7c3aed; --slate:#334155; --green:#16a34a; --red:#ef4444;
-    }
-    *{box-sizing:border-box;font-family:Inter,system-ui,Arial}
-    body{margin:0;background:linear-gradient(180deg,#0e1117,#0b1220 60%);color:var(--text);}
-    .wrap{max-width:880px;margin:48px auto;padding:0 16px;text-align:center}
-    h1{font-size:38px;margin:0 0 6px}
-    .sub{color:var(--muted);margin-bottom:28px}
-    .card{background:var(--card);border:1px solid #1f2430;border-radius:16px;padding:20px}
-    .row{display:flex;gap:14px;flex-wrap:wrap;justify-content:center}
-    button{cursor:pointer;border:0;border-radius:12px;padding:14px 18px;font-weight:600;transition:.15s}
-    .btn{min-width:220px}
-    .primary{background:var(--blue);color:#fff}
-    .ghost{background:#0d1320;color:#cbd5e1;border:1px solid #1e293b}
-    .gm{background:#1d4ed8;color:#fff}
-    .gn{background:#6d28d9;color:#fff}
-    .sleep{background:#374151;color:#cbd5e1}
-    .danger{background:var(--red);color:#fff}
-    .ok{background:var(--green);color:#fff}
-    .disabled{opacity:.5;pointer-events:none}
-    .chip{display:inline-flex;align-items:center;gap:8px;background:#0b1324;border:1px solid #1f2a44;color:#cfe0ff;padding:10px 12px;border-radius:12px;font-size:14px}
-    .chip .dot{width:8px;height:8px;border-radius:999px;background:#16a34a;display:inline-block}
-    a.link{color:#7aa2ff;text-decoration:none}
-    .foot{color:var(--muted);font-size:13px;margin-top:18px}
-  </style>
-  <!-- Ethers v5 (paling kompatibel dengan dApp browser mobile) -->
-  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GM Ritual • On Base</title>
+
+<style>
+body {
+  margin: 0;
+  padding: 0;
+  background: linear-gradient(135deg, #ffffff, #b3e5fc);
+  font-family: Arial, sans-serif;
+  text-align: center;
+}
+button {
+  padding: 14px;
+  margin: 8px;
+  width: 250px;
+  border-radius: 10px;
+  font-size: 18px;
+  border: none;
+  cursor: pointer;
+}
+#connectBtn {
+  background: #2962ff;
+  color: white;
+}
+.ritualBtn {
+  background: #009688;
+  color: white;
+}
+.ritualBtn:disabled {
+  background: #bdbdbd;
+  color: #666;
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.7.1/dist/ethers.min.js"></script>
 </head>
+
 <body>
-  <div class="wrap">
-    <h1>GM Ritual Dashboard ⚡</h1>
-    <div class="sub">Connect → Choose Ritual → Confirm TX (Base Mainnet 8453)</div>
 
-    <div class="card">
-      <div class="row" style="margin-bottom:12px;">
-        <button id="connectBtn" class="btn primary">Connect Wallet</button>
-        <button id="disconnectBtn" class="btn danger disabled">Disconnect</button>
-      </div>
-      <div id="addrBar" style="margin:8px 0 18px;display:none;">
-        <span class="chip"><span class="dot"></span><span id="addrShort">0x…</span></span>
-      </div>
+<h1>GM Ritual • Base Chain</h1>
+<p>Daily ritual cooldown reset at 00:00 UTC</p>
 
-      <div class="row" style="margin-top:4px;">
-        <button id="gmBtn" class="btn gm disabled">GM Ritual 🌞</button>
-        <button id="gnBtn" class="btn gn disabled">GN Ritual 🌙</button>
-        <button id="sleepBtn" class="btn sleep disabled">GoSleep 😴</button>
-      </div>
-
-      <div class="foot">
-        Need your own contract? <a class="link" href="/deploy">Deploy your contract 🚀</a>
-      </div>
-    </div>
-  </div>
+<button id="connectBtn">Connect Wallet</button>
+<br>
+<button class="ritualBtn" id="gmBtn" disabled>GM Ritual ⚡</button>
+<button class="ritualBtn" id="gnBtn" disabled>GN Ritual 🌙</button>
+<button class="ritualBtn" id="sleepBtn" disabled>GoSleep 😴</button>
 
 <script>
-(() => {
-  // ====== CONFIG ======
-  const CONTRACT = "0x725Ccb4ddCB715f468b301395Dfd1b1efDb5308A";
-  const ABI = [
-    "function performRitual(string calldata newMessage) external payable",
-    "function fee() view returns (uint256)"
-  ];
-  const BASE_CHAIN_ID_HEX = "0x2105"; // 8453
+const CONTRACT_ADDRESS = "0x725Ccb4ddCB715f468b301395Dfd1b1efDb5308A";
+const ABI = [
+  "function performRitual(string calldata newMessage) external payable",
+  "function fee() public view returns(uint256)"
+];
 
-  // ====== UI ======
-  const $ = (id) => document.getElementById(id);
-  const connectBtn = $("connectBtn");
-  const disconnectBtn = $("disconnectBtn");
-  const gmBtn = $("gmBtn");
-  const gnBtn = $("gnBtn");
-  const sleepBtn = $("sleepBtn");
-  const addrBar = $("addrBar");
-  const addrShort = $("addrShort");
+let provider = null;
+let signer = null;
+let userAddress = null;
 
-  let provider, signer, account;
+// ✅ Check if user has already done ritual today
+function alreadyDidRitualToday() {
+  if (!userAddress) return false;
+  const key = "ritualDate_" + userAddress;
+  const saved = localStorage.getItem(key);
+  const todayUTC = new Date().toISOString().slice(0, 10);  
+  return saved === todayUTC;
+}
 
-  function short(addr){ return addr ? addr.slice(0,6)+"…"+addr.slice(-4) : ""; }
-  function setDisabled(el, val){ el.classList.toggle("disabled", !!val); }
-  function setConnectedUI(addr){
-    connectBtn.textContent = "Connected ✅";
-    setDisabled(connectBtn,true);
-    setDisabled(disconnectBtn,false);
-    addrBar.style.display = "block";
-    addrShort.textContent = short(addr);
-    setDisabled(gmBtn,false);
-    setDisabled(gnBtn,false);
-    setDisabled(sleepBtn,false);
-  }
-  function setDisconnectedUI(){
-    connectBtn.textContent = "Connect Wallet";
-    setDisabled(connectBtn,false);
-    setDisabled(disconnectBtn,true);
-    addrBar.style.display = "none";
-    setDisabled(gmBtn,true);
-    setDisabled(gnBtn,true);
-    setDisabled(sleepBtn,true);
-  }
+// ✅ Mark ritual done today
+function markRitualDone() {
+  const key = "ritualDate_" + userAddress;
+  const todayUTC = new Date().toISOString().slice(0, 10);
+  localStorage.setItem(key, todayUTC);
+}
 
-  async function ensureBase(){
-    const eth = window.ethereum;
-    if (!eth) throw new Error("No wallet. Open with MetaMask/OKX/Bitget dApp browser.");
-    const currentHex = eth.chainId || (await eth.request({method:"eth_chainId"}));
-    if (currentHex === BASE_CHAIN_ID_HEX) return;
+// ✅ Update button state
+function updateButtons() {
+  const disabled = alreadyDidRitualToday();
+  document.getElementById("gmBtn").disabled = disabled;
+  document.getElementById("gnBtn").disabled = disabled;
+  document.getElementById("sleepBtn").disabled = disabled;
+}
+
+// ✅ Auto-switch or add Base chain
+async function ensureBase() {
+  if (!window.ethereum) return;
+  try {
+    await window.ethereum.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: "0x2105" }]
+    });
+  } catch (err) {
     try {
-      await eth.request({ method: "wallet_switchEthereumChain", params: [{ chainId: BASE_CHAIN_ID_HEX }] });
-    } catch (err) {
-      if (err && err.code === 4902) {
-        await eth.request({
-          method: "wallet_addEthereumChain",
-          params: [{
-            chainId: BASE_CHAIN_ID_HEX,
-            chainName: "Base",
-            rpcUrls: ["https://mainnet.base.org"],
-            nativeCurrency: { name:"Base Ether", symbol:"ETH", decimals:18 },
-            blockExplorerUrls: ["https://basescan.org"]
-          }]
-        });
-      } else {
-        throw err;
-      }
-    }
-  }
-
-  async function connect(){
-    try{
-      const eth = window.ethereum || window.okxwallet || (window.bitkeep && window.bitkeep.ethereum) || window.bitgetwallet;
-      if (!eth){ alert("Wallet not detected. Use MetaMask/OKX/Bitget dApp browser."); return; }
-
-      await ensureBase();
-
-      provider = new ethers.providers.Web3Provider(eth, "any");
-      await provider.send("eth_requestAccounts", []);
-      signer = provider.getSigner();
-      account = await signer.getAddress();
-      setConnectedUI(account);
-
-      // Reaksi event
-      eth.removeAllListeners?.("accountsChanged");
-      eth.removeAllListeners?.("chainChanged");
-      eth.on?.("accountsChanged", (accs)=>{
-        if (!accs || accs.length===0){ disconnect(); return; }
-        account = accs[0];
-        addrShort.textContent = short(account);
+      await window.ethereum.request({
+        method: "wallet_addEthereumChain",
+        params: [{
+          chainId: "0x2105",
+          chainName: "Base",
+          rpcUrls: ["https://mainnet.base.org"],
+          nativeCurrency: { name: "Base", symbol: "ETH", decimals: 18 },
+          blockExplorerUrls: ["https://basescan.org"]
+        }]
       });
-      eth.on?.("chainChanged", async (cid)=>{
-        if (cid !== BASE_CHAIN_ID_HEX){
-          try { await ensureBase(); } catch { disconnect(); }
-        }
-      });
+    } catch (e) {}
+  }
+}
 
-    }catch(err){
-      console.error(err);
-      alert("Connection failed ❌");
-      setDisconnectedUI();
-    }
+// ✅ Connect wallet
+async function connectWallet() {
+  if (!window.ethereum) {
+    alert("No Web3 wallet detected. Use OKX/Bitget/MetaMask dApp browser.");
+    return;
   }
 
-  async function disconnect(){
-    try{
-      // injected wallet umumnya tidak punya metode disconnect; kita reset UI saja
-      provider = undefined; signer = undefined; account = undefined;
-    }finally{
-      setDisconnectedUI();
-    }
+  try {
+    await ensureBase();
+
+    provider = new ethers.BrowserProvider(window.ethereum);
+    signer = await provider.getSigner();
+    userAddress = await signer.getAddress();
+
+    document.getElementById("connectBtn").innerText = "Connected ✅";
+
+    updateButtons();
+
+  } catch (err) {
+    alert("Connection failed.");
+  }
+}
+
+// ✅ Ritual execution
+async function performRitual(message) {
+  if (alreadyDidRitualToday()) {
+    alert("You've already performed today's ritual ✅ Come back tomorrow.");
+    return;
   }
 
-  async function doRitual(message){
-    try{
-      if(!signer){ await connect(); }
-      await ensureBase();
-      const contract = new ethers.Contract(CONTRACT, ABI, signer);
-      const fee = await contract.fee();
-      const tx = await contract.performRitual(message, { value: fee });
-      alert("Transaction sent. Waiting confirmation…");
-      await tx.wait();
-      alert("Ritual executed ✅");
-    }catch(err){
-      console.error(err);
-      // Tampilkan pesan umum user-friendly
-      alert("Ritual failed ❌");
-    }
+  try {
+    await ensureBase();
+
+    provider = new ethers.BrowserProvider(window.ethereum);
+    signer = await provider.getSigner();
+
+    const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+    const fee = await contract.fee();
+
+    const tx = await contract.performRitual(message, { value: fee });
+    alert("Transaction submitted...");
+    await tx.wait();
+
+    markRitualDone();  // ✅ Save ritual day
+    updateButtons();   // ✅ Disable buttons
+
+    alert("Ritual complete ✅");
+
+  } catch (err) {
+    console.error(err);
+    alert("Ritual failed ❌");
   }
+}
 
-  // Bind
-  connectBtn.onclick = connect;
-  disconnectBtn.onclick = disconnect;
-  gmBtn.onclick = () => doRitual("GM ⚡");
-  gnBtn.onclick = () => doRitual("GN 🌙");
-  sleepBtn.onclick = () => doRitual("GoSleep 😴");
+// ✅ Bind buttons
+document.getElementById("connectBtn").onclick = connectWallet;
+document.getElementById("gmBtn").onclick = () => performRitual("GM ⚡");
+document.getElementById("gnBtn").onclick = () => performRitual("GN 🌙");
+document.getElementById("sleepBtn").onclick = () => performRitual("GoSleep 😴");
 
-  // init
-  setDisconnectedUI();
-})();
 </script>
+
 </body>
 </html>
