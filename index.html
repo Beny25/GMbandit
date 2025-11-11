@@ -2,111 +2,203 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Deploy GMbanditV2 • Base</title>
+  <title>GM Ritual • On Base</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="icon" href="data:," />
   <style>
-    body{margin:0;background:#0e1117;color:#e9eefb;font-family:Inter,system-ui,Arial}
-    .wrap{max-width:780px;margin:48px auto;padding:0 16px}
-    h1{margin:0 0 8px;font-size:34px}
-    .card{background:#111826;border:1px solid #1f2430;border-radius:16px;padding:20px}
-    label{display:block;margin:12px 0 6px;color:#9aa4b2}
-    input{width:100%;padding:12px;border-radius:10px;border:1px solid #283044;background:#0c1424;color:#e9eefb}
-    .row{display:flex;gap:12px;flex-wrap:wrap}
-    button{cursor:pointer;border:0;border-radius:12px;padding:14px 18px;font-weight:700}
-    .primary{background:#2563eb;color:#fff}
+    :root{
+      --bg:#0f1115; --card:#161a22; --text:#e9eefb; --muted:#9aa4b2;
+      --blue:#2563eb; --purple:#7c3aed; --slate:#334155; --green:#16a34a; --red:#ef4444;
+    }
+    *{box-sizing:border-box;font-family:Inter,system-ui,Arial}
+    body{margin:0;background:linear-gradient(180deg,#0e1117,#0b1220 60%);color:var(--text);}
+    .wrap{max-width:880px;margin:48px auto;padding:0 16px;text-align:center}
+    h1{font-size:38px;margin:0 0 6px}
+    .sub{color:var(--muted);margin-bottom:28px}
+    .card{background:var(--card);border:1px solid #1f2430;border-radius:16px;padding:20px}
+    .row{display:flex;gap:14px;flex-wrap:wrap;justify-content:center}
+    button{cursor:pointer;border:0;border-radius:12px;padding:14px 18px;font-weight:600;transition:.15s}
+    .btn{min-width:220px}
+    .primary{background:var(--blue);color:#fff}
     .ghost{background:#0d1320;color:#cbd5e1;border:1px solid #1e293b}
-    .muted{color:#9aa4b2}
-    .chip{display:inline-flex;gap:8px;background:#0b1324;border:1px solid #1f2a44;padding:10px 12px;border-radius:12px;font-size:14px}
+    .gm{background:#1d4ed8;color:#fff}
+    .gn{background:#6d28d9;color:#fff}
+    .sleep{background:#374151;color:#cbd5e1}
+    .danger{background:var(--red);color:#fff}
+    .ok{background:var(--green);color:#fff}
+    .disabled{opacity:.5;pointer-events:none}
+    .chip{display:inline-flex;align-items:center;gap:8px;background:#0b1324;border:1px solid #1f2a44;color:#cfe0ff;padding:10px 12px;border-radius:12px;font-size:14px}
+    .chip .dot{width:8px;height:8px;border-radius:999px;background:#16a34a;display:inline-block}
+    a.link{color:#7aa2ff;text-decoration:none}
+    .foot{color:var(--muted);font-size:13px;margin-top:18px}
   </style>
+  <!-- Ethers v5 (paling kompatibel dengan dApp browser mobile) -->
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 </head>
 <body>
-<div class="wrap">
-  <h1>Deploy your GMbanditV2 Contract</h1>
-  <p class="muted">Connect → auto-fill Owner → set Collector → Deploy (Base Mainnet 8453).</p>
+  <div class="wrap">
+    <h1>GM Ritual Dashboard ⚡</h1>
+    <div class="sub">Connect → Choose Ritual → Confirm TX (Base Mainnet 8453)</div>
 
-  <div class="card">
-    <div style="margin-bottom:12px;">
-      <button id="connectBtn" class="primary">Connect Wallet</button>
-      <span id="addrChip" class="chip" style="display:none;"></span>
-    </div>
+    <div class="card">
+      <div class="row" style="margin-bottom:12px;">
+        <button id="connectBtn" class="btn primary">Connect Wallet</button>
+        <button id="disconnectBtn" class="btn danger disabled">Disconnect</button>
+      </div>
+      <div id="addrBar" style="margin:8px 0 18px;display:none;">
+        <span class="chip"><span class="dot"></span><span id="addrShort">0x…</span></span>
+      </div>
 
-    <label>Owner Address (auto)</label>
-    <input id="owner" placeholder="0x…" readonly />
+      <div class="row" style="margin-top:4px;">
+        <button id="gmBtn" class="btn gm disabled">GM Ritual 🌞</button>
+        <button id="gnBtn" class="btn gn disabled">GN Ritual 🌙</button>
+        <button id="sleepBtn" class="btn sleep disabled">GoSleep 😴</button>
+      </div>
 
-    <label>Collector Address</label>
-    <input id="collector" placeholder="0xCollector…" />
-
-    <div style="margin-top:16px" class="row">
-      <button id="deployBtn" class="primary">Deploy Now 🚀</button>
-      <a href="/" class="ghost" style="text-decoration:none;display:inline-block;padding:14px 18px;">← Back to Dashboard</a>
+      <div class="foot">
+        Need your own contract? <a class="link" href="/deploy">Deploy your contract 🚀</a>
+      </div>
     </div>
   </div>
-</div>
 
 <script>
 (() => {
+  // ====== CONFIG ======
+  const CONTRACT = "0x725Ccb4ddCB715f468b301395Dfd1b1efDb5308A";
+  const ABI = [
+    "function performRitual(string calldata newMessage) external payable",
+    "function fee() view returns (uint256)"
+  ];
   const BASE_CHAIN_ID_HEX = "0x2105"; // 8453
-  const connectBtn = document.getElementById("connectBtn");
-  const ownerInput = document.getElementById("owner");
-  const collectorInput = document.getElementById("collector");
-  const deployBtn = document.getElementById("deployBtn");
-  const addrChip = document.getElementById("addrChip");
+
+  // ====== UI ======
+  const $ = (id) => document.getElementById(id);
+  const connectBtn = $("connectBtn");
+  const disconnectBtn = $("disconnectBtn");
+  const gmBtn = $("gmBtn");
+  const gnBtn = $("gnBtn");
+  const sleepBtn = $("sleepBtn");
+  const addrBar = $("addrBar");
+  const addrShort = $("addrShort");
 
   let provider, signer, account;
 
+  function short(addr){ return addr ? addr.slice(0,6)+"…"+addr.slice(-4) : ""; }
+  function setDisabled(el, val){ el.classList.toggle("disabled", !!val); }
+  function setConnectedUI(addr){
+    connectBtn.textContent = "Connected ✅";
+    setDisabled(connectBtn,true);
+    setDisabled(disconnectBtn,false);
+    addrBar.style.display = "block";
+    addrShort.textContent = short(addr);
+    setDisabled(gmBtn,false);
+    setDisabled(gnBtn,false);
+    setDisabled(sleepBtn,false);
+  }
+  function setDisconnectedUI(){
+    connectBtn.textContent = "Connect Wallet";
+    setDisabled(connectBtn,false);
+    setDisabled(disconnectBtn,true);
+    addrBar.style.display = "none";
+    setDisabled(gmBtn,true);
+    setDisabled(gnBtn,true);
+    setDisabled(sleepBtn,true);
+  }
+
   async function ensureBase(){
-    const eth = window.ethereum || window.okxwallet || (window.bitkeep && window.bitkeep.ethereum) || window.bitgetwallet;
-    if (!eth) throw new Error("No wallet detected");
-    const current = eth.chainId || (await eth.request({method:"eth_chainId"}));
-    if (current === BASE_CHAIN_ID_HEX) return;
-    try{
-      await eth.request({method:"wallet_switchEthereumChain", params:[{chainId:BASE_CHAIN_ID_HEX}]});
-    }catch(err){
-      if (err && err.code===4902){
-        await eth.request({method:"wallet_addEthereumChain", params:[{
-          chainId:BASE_CHAIN_ID_HEX, chainName:"Base",
-          rpcUrls:["https://mainnet.base.org"],
-          nativeCurrency:{name:"Base Ether",symbol:"ETH",decimals:18},
-          blockExplorerUrls:["https://basescan.org"]
-        }]});
-      } else { throw err; }
+    const eth = window.ethereum;
+    if (!eth) throw new Error("No wallet. Open with MetaMask/OKX/Bitget dApp browser.");
+    const currentHex = eth.chainId || (await eth.request({method:"eth_chainId"}));
+    if (currentHex === BASE_CHAIN_ID_HEX) return;
+    try {
+      await eth.request({ method: "wallet_switchEthereumChain", params: [{ chainId: BASE_CHAIN_ID_HEX }] });
+    } catch (err) {
+      if (err && err.code === 4902) {
+        await eth.request({
+          method: "wallet_addEthereumChain",
+          params: [{
+            chainId: BASE_CHAIN_ID_HEX,
+            chainName: "Base",
+            rpcUrls: ["https://mainnet.base.org"],
+            nativeCurrency: { name:"Base Ether", symbol:"ETH", decimals:18 },
+            blockExplorerUrls: ["https://basescan.org"]
+          }]
+        });
+      } else {
+        throw err;
+      }
     }
   }
 
   async function connect(){
     try{
       const eth = window.ethereum || window.okxwallet || (window.bitkeep && window.bitkeep.ethereum) || window.bitgetwallet;
-      if (!eth){ alert("Open in MetaMask/OKX/Bitget dApp browser"); return; }
+      if (!eth){ alert("Wallet not detected. Use MetaMask/OKX/Bitget dApp browser."); return; }
+
       await ensureBase();
+
       provider = new ethers.providers.Web3Provider(eth, "any");
       await provider.send("eth_requestAccounts", []);
       signer = provider.getSigner();
       account = await signer.getAddress();
-      ownerInput.value = account;
-      addrChip.style.display = "inline-flex";
-      addrChip.textContent = account.slice(0,6)+"…"+account.slice(-4);
-      connectBtn.textContent = "Connected ✅";
-      connectBtn.disabled = true;
-    }catch(e){
-      console.error(e); alert("Connection failed");
+      setConnectedUI(account);
+
+      // Reaksi event
+      eth.removeAllListeners?.("accountsChanged");
+      eth.removeAllListeners?.("chainChanged");
+      eth.on?.("accountsChanged", (accs)=>{
+        if (!accs || accs.length===0){ disconnect(); return; }
+        account = accs[0];
+        addrShort.textContent = short(account);
+      });
+      eth.on?.("chainChanged", async (cid)=>{
+        if (cid !== BASE_CHAIN_ID_HEX){
+          try { await ensureBase(); } catch { disconnect(); }
+        }
+      });
+
+    }catch(err){
+      console.error(err);
+      alert("Connection failed ❌");
+      setDisconnectedUI();
     }
   }
 
-  // NOTE: ganti bytecode + ABI deploy sesuai Factory kamu jika nanti mau benar-benar deploy dari UI.
-  // Untuk saat ini tombol akan kasih alert info.
-  async function deployNow(){
-    if (!signer){ await connect(); }
-    const owner = ownerInput.value.trim();
-    const collector = collectorInput.value.trim();
-    if (!ethers.utils.isAddress(owner) || !ethers.utils.isAddress(collector)){
-      alert("Invalid owner/collector address"); return;
+  async function disconnect(){
+    try{
+      // injected wallet umumnya tidak punya metode disconnect; kita reset UI saja
+      provider = undefined; signer = undefined; account = undefined;
+    }finally{
+      setDisconnectedUI();
     }
-    alert("UI deploy dummy dulu. (Backend/factory deploy bisa ditambah nanti)");
   }
 
+  async function doRitual(message){
+    try{
+      if(!signer){ await connect(); }
+      await ensureBase();
+      const contract = new ethers.Contract(CONTRACT, ABI, signer);
+      const fee = await contract.fee();
+      const tx = await contract.performRitual(message, { value: fee });
+      alert("Transaction sent. Waiting confirmation…");
+      await tx.wait();
+      alert("Ritual executed ✅");
+    }catch(err){
+      console.error(err);
+      // Tampilkan pesan umum user-friendly
+      alert("Ritual failed ❌");
+    }
+  }
+
+  // Bind
   connectBtn.onclick = connect;
-  deployBtn.onclick = deployNow;
+  disconnectBtn.onclick = disconnect;
+  gmBtn.onclick = () => doRitual("GM ⚡");
+  gnBtn.onclick = () => doRitual("GN 🌙");
+  sleepBtn.onclick = () => doRitual("GoSleep 😴");
+
+  // init
+  setDisconnectedUI();
 })();
 </script>
 </body>
