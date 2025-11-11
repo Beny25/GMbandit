@@ -1,157 +1,99 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>Deploy • GMbandit</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <style>
-    body { font-family: Inter, system-ui, Arial; background:#0b1220; color:#e9eefb; margin:0; }
-    .wrap{max-width:900px;margin:48px auto;padding:20px;text-align:center}
-    .card{background:#0f1720;border:1px solid #1f2a44;border-radius:12px;padding:22px}
-    input,button,select{padding:12px;border-radius:8px;border:1px solid #283447;background: #071028;color:#e9eefb}
-    button{cursor:pointer;margin:8px}
-    .muted{color:#9aa4b2;font-size:13px}
-    .small{font-size:13px}
-  </style>
-  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<meta charset="UTF-8">
+<title>Deploy GMbandit Contract</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body{background:#0d1117;color:#fff;font-family:Arial;text-align:center;padding:20px}
+.card{background:#161b22;border:1px solid #233044;border-radius:12px;padding:20px;max-width:400px;margin:auto}
+button{padding:12px 16px;border:0;border-radius:10px;font-size:16px;font-weight:bold;cursor:pointer;margin-top:10px}
+.primary{background:#1d4ed8;color:#fff}
+.disabled{opacity:.4;pointer-events:none}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 </head>
 <body>
-  <div class="wrap">
-    <h1>Deploy GMbandit (via Factory)</h1>
-    <p class="muted">Owner will be set automatically to the wallet that clicks "Deploy". Collector is fixed to the project wallet (no input).</p>
 
-    <div class="card">
-      <div style="margin-bottom:12px;">
-        <button id="connectBtn">Connect Wallet</button>
-        <button id="disconnectBtn" disabled>Disconnect</button>
-      </div>
+<h1>Deploy GMbandit 🚀</h1>
 
-      <div style="margin:12px 0;">
-        <label class="small">Initial on-chain message</label><br/>
-        <input id="initialMsg" type="text" placeholder="GM Ritual Initiated" style="width:60%" />
-      </div>
-
-      <!-- collector removed on purpose -->
-      <div style="margin:10px 0;" class="small muted">
-        Collector (fees) will be sent to: <span id="collectorAddr"></span>
-      </div>
-
-      <div style="margin-top:16px;">
-        <button id="deployBtn" disabled>Deploy GM Contract</button>
-      </div>
-
-      <div id="status" style="margin-top:14px;color:#cfe0ff"></div>
-    </div>
-  </div>
+<div class="card">
+  <p id="status">Please connect wallet</p>
+  <button id="connectBtn" class="primary">Connect Wallet</button>
+  <button id="deployBtn" class="primary disabled">Deploy Contract</button>
+</div>
 
 <script>
-(async ()=> {
-  // ====== CONFIG - EDIT THESE ======
-  const FACTORY_ADDRESS = "0xb9C0b964E223D0058cdFEB445B4506415117b055"; // <- replace with your Factory address
-  // Example ABI: change to your factory's real ABI and method name
-  const FACTORY_ABI = [
-    // example: factory.deployGM(string initialMessage, address collector) -> change to your actual function
-    "function createGM(string calldata initialMessage, address collector) payable returns (address)"
+(async()=>{
+  const FACTORY_ADDRESS = "0xb9C0b964E223D0058cdFEB445B4506415117b055";
+
+  // ✅ ABI based on screenshot
+  const ABI = [
+    "function deployGMbandit(address ownerAddress, address collectorAddress) returns(address)"
   ];
-  const COLLECTOR_ADDRESS = "0x4AE70118DD2cB814404DaAA064daB470B7F76542"; // <- wallet utama, fixed (no form)
 
-  // ====== UI elements ======
-  const connectBtn = document.getElementById("connectBtn");
-  const disconnectBtn = document.getElementById("disconnectBtn");
-  const deployBtn = document.getElementById("deployBtn");
-  const initialMsgInput = document.getElementById("initialMsg");
-  const statusEl = document.getElementById("status");
-  const collectorAddrEl = document.getElementById("collectorAddr");
+  const BASE_HEX = "0x2105";
 
-  collectorAddrEl.innerText = COLLECTOR_ADDRESS;
+  const COLLECTOR = "0x725Ccb4ddCB715f468b301395Dfd1b1efDb5308A"; // ✅ your collector
 
   let provider, signer, account;
 
-  function short(a){ return a ? a.slice(0,6) + "…" + a.slice(-4) : ""; }
-  function setStatus(s){ statusEl.textContent = s; }
+  const status = document.getElementById("status");
+  const connectBtn = document.getElementById("connectBtn");
+  const deployBtn  = document.getElementById("deployBtn");
 
-  // ===== ensure base chain =====
-  async function ensureBase(ethProvider){
-    const baseHex = "0x2105"; // 8453
-    try {
-      const chainId = await ethProvider.request({ method: "eth_chainId" });
-      if (chainId !== baseHex) {
-        try {
-          await ethProvider.request({ method: "wallet_switchEthereumChain", params:[{chainId: baseHex}] });
-        } catch(switchErr){
-          // add chain if missing
-          if (switchErr && switchErr.code === 4902) {
-            await ethProvider.request({
-              method: "wallet_addEthereumChain",
-              params: [{
-                chainId: baseHex,
-                chainName: "Base",
-                rpcUrls: ["https://mainnet.base.org"],
-                nativeCurrency: { name: "Base Ether", symbol: "ETH", decimals: 18 },
-                blockExplorerUrls: ["https://basescan.org"]
-              }]
-            });
-          } else {
-            throw switchErr;
-          }
-        }
+  async function ensureBase(eth){
+    const id = await eth.request({method:"eth_chainId"});
+    if(id !== BASE_HEX){
+      try{
+        await eth.request({method:"wallet_switchEthereumChain", params:[{chainId:BASE_HEX}]});
+      }catch{
+        alert("Switch to Base manually");
+        throw "wrong network";
       }
-    } catch(e){
-      throw e;
     }
   }
 
-  // ===== connect/disconnect =====
-  connectBtn.onclick = async () => {
-    try {
-      const eth = window.ethereum || window.okxwallet || window.bitgetwallet || (window.bitkeep && window.bitkeep.ethereum);
-      if (!eth) { alert("Open in MetaMask/OKX/Bitget dApp browser or use a browser with injected wallet."); return; }
-      await ensureBase(eth);
-      provider = new ethers.providers.Web3Provider(eth, "any");
-      await provider.send("eth_requestAccounts", []);
-      signer = provider.getSigner();
-      account = await signer.getAddress();
-      connectBtn.innerText = "Connected: " + short(account);
-      connectBtn.disabled = true;
-      disconnectBtn.disabled = false;
-      deployBtn.disabled = false;
-      setStatus("Connected as " + account);
-      eth.on?.("accountsChanged", (acc)=>{
-        if(!acc || acc.length===0){ disconnect(); return; }
-        account = acc[0]; connectBtn.innerText = "Connected: " + short(account);
-      });
-    } catch(err){ console.error(err); alert("Connect failed"); setStatus("Connect failed"); }
-  };
+  async function connect(){
+    const eth = window.ethereum || window.okxwallet || window.bitgetwallet || (window.bitkeep && window.bitkeep.ethereum);
+    if(!eth){ alert("No wallet detected"); return; }
 
-  disconnectBtn.onclick = ()=>{ provider = null; signer = null; account = null; connectBtn.innerText = "Connect Wallet"; connectBtn.disabled = false; disconnectBtn.disabled = true; deployBtn.disabled = true; setStatus("Disconnected"); };
+    await ensureBase(eth);
 
-  // ===== deploy via factory =====
-  deployBtn.onclick = async () => {
-    if (!signer) { alert("Connect wallet first"); return; }
-    const initialMsg = initialMsgInput.value.trim() || "GM Ritual Initiated";
-    setStatus("Preparing deploy...");
+    provider = new ethers.providers.Web3Provider(eth);
+    await provider.send("eth_requestAccounts", []);
+    signer = provider.getSigner();
+    account = await signer.getAddress();
 
-    try {
-      // owner is the deployer (current signer address)
-      const owner = await signer.getAddress(); // auto-owner
-      const collector = COLLECTOR_ADDRESS;      // fixed collector
+    status.innerText = "Connected ✅ " + account;
+    connectBtn.classList.add("disabled");
+    deployBtn.classList.remove("disabled");
+  }
 
-      // Use your actual factory ABI & method name here.
-      // Example uses createGM(initialMessage, collector)
-      const factory = new ethers.Contract(FACTORY_ADDRESS, FACTORY_ABI, signer);
+  async function deploy(){
+    try{
+      const factory = new ethers.Contract(FACTORY_ADDRESS, ABI, signer);
 
-      setStatus("Sending deploy tx (owner = " + short(owner) + ") ...");
-      // If your factory requires a fee, include { value: ... } as second param
-      const tx = await factory.createGM(initialMsg, collector /* , { value: ethers.utils.parseEther("0.00") } */);
-      setStatus("Tx sent: " + tx.hash + " — waiting confirmation...");
-      await tx.wait();
-      setStatus("Contract deployed via factory ✅ Tx: " + tx.hash);
-    } catch (err) {
+      status.innerText = "Sending transaction…";
+
+      // ✅ CALL exactly matched function signature
+      const tx = await factory.deployGMbandit(account, COLLECTOR);
+
+      status.innerText = "Waiting confirmation…";
+      const receipt = await tx.wait();
+
+      alert("Deployed ✅ TX: " + tx.hash);
+      status.innerText = "Deployed ✅ address: " + receipt.logs[0].address;
+
+    }catch(err){
       console.error(err);
-      setStatus("Deploy failed: " + (err.message || err));
-      alert("Deploy error — open console for details");
+      status.innerText = "Deploy failed ❌";
+      alert("Deploy failed ❌");
     }
-  };
+  }
+
+  connectBtn.onclick = connect;
+  deployBtn.onclick = deploy;
 
 })();
 </script>
