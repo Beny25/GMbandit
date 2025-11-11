@@ -1,174 +1,205 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>GM Ritual • On Base</title>
-
-<style>
-body {
-  margin: 0;
-  padding: 0;
-  background: linear-gradient(135deg, #ffffff, #b3e5fc);
-  font-family: Arial, sans-serif;
-  text-align: center;
-}
-button {
-  padding: 14px;
-  margin: 8px;
-  width: 250px;
-  border-radius: 10px;
-  font-size: 18px;
-  border: none;
-  cursor: pointer;
-}
-#connectBtn {
-  background: #2962ff;
-  color: white;
-}
-.ritualBtn {
-  background: #009688;
-  color: white;
-}
-.ritualBtn:disabled {
-  background: #bdbdbd;
-  color: #666;
-}
-</style>
-
-<script src="https://cdn.jsdelivr.net/npm/ethers@6.7.1/dist/ethers.min.js"></script>
+  <meta charset="utf-8" />
+  <title>GM Ritual • On Base</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root{
+      --bg:#0f1115; --card:#161a22; --text:#e9eefb; --muted:#9aa4b2;
+      --blue:#2563eb; --purple:#7c3aed; --green:#16a34a; --red:#ef4444;
+    }
+    body{
+      margin:0;background:linear-gradient(180deg,#0e1117,#0b1220 60%);
+      color:var(--text);font-family:Arial,system-ui;text-align:center;
+    }
+    .wrap{max-width:880px;margin:48px auto;padding:0 16px;}
+    .card{background:#161a22;border-radius:16px;padding:22px;border:1px solid #1e2531;}
+    button{padding:14px 18px;border-radius:12px;font-size:16px;font-weight:600;
+      cursor:pointer;border:0;transition:.15s;}
+    .btn{min-width:220px;margin:6px;}
+    .primary{background:var(--blue);color:white;}
+    .danger{background:var(--red);color:white;}
+    .gm{background:#1d4ed8;color:white;}
+    .gn{background:#6d28d9;color:white;}
+    .sleep{background:#475569;color:#e2e8f0;}
+    .disabled{opacity:.45;pointer-events:none;}
+    .chip{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;
+      background:#0b1324;border-radius:12px;border:1px solid #1f2d44;}
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 </head>
 
 <body>
+<div class="wrap">
+  <h1>GM Ritual Dashboard ⚡</h1>
+  <p style="color:#9aa4b2">1 ritual per day • resets at 00:00 UTC</p>
 
-<h1>GM Ritual • Base Chain</h1>
-<p>Daily ritual cooldown reset at 00:00 UTC</p>
+  <div class="card">
+    <button id="connectBtn" class="btn primary">Connect Wallet</button>
+    <button id="disconnectBtn" class="btn danger disabled">Disconnect</button>
 
-<button id="connectBtn">Connect Wallet</button>
-<br>
-<button class="ritualBtn" id="gmBtn" disabled>GM Ritual ⚡</button>
-<button class="ritualBtn" id="gnBtn" disabled>GN Ritual 🌙</button>
-<button class="ritualBtn" id="sleepBtn" disabled>GoSleep 😴</button>
+    <div id="userBar" style="margin:15px 0;display:none;">
+      <span class="chip" id="addrChip">0x0000…0000</span>
+    </div>
+
+    <button id="gmBtn" class="btn gm disabled">GM Ritual ⚡</button>
+    <button id="gnBtn" class="btn gn disabled">GN Ritual 🌙</button>
+    <button id="sleepBtn" class="btn sleep disabled">GoSleep 😴</button>
+  </div>
+</div>
 
 <script>
-const CONTRACT_ADDRESS = "0x725Ccb4ddCB715f468b301395Dfd1b1efDb5308A";
-const ABI = [
-  "function performRitual(string calldata newMessage) external payable",
-  "function fee() public view returns(uint256)"
-];
+(() => {
 
-let provider = null;
-let signer = null;
-let userAddress = null;
+  const CONTRACT = "0x725Ccb4ddCB715f468b301395Dfd1b1efDb5308A";
+  const ABI = [
+    "function performRitual(string calldata newMessage) external payable",
+    "function fee() view returns(uint256)"
+  ];
+  const BASE_CHAIN = "0x2105";
 
-// ✅ Check if user has already done ritual today
-function alreadyDidRitualToday() {
-  if (!userAddress) return false;
-  const key = "ritualDate_" + userAddress;
-  const saved = localStorage.getItem(key);
-  const todayUTC = new Date().toISOString().slice(0, 10);  
-  return saved === todayUTC;
-}
+  let provider, signer, account;
 
-// ✅ Mark ritual done today
-function markRitualDone() {
-  const key = "ritualDate_" + userAddress;
-  const todayUTC = new Date().toISOString().slice(0, 10);
-  localStorage.setItem(key, todayUTC);
-}
+  const $ = (i) => document.getElementById(i);
+  const connectBtn = $("connectBtn");
+  const disconnectBtn = $("disconnectBtn");
+  const gmBtn = $("gmBtn");
+  const gnBtn = $("gnBtn");
+  const sleepBtn = $("sleepBtn");
+  const userBar = $("userBar");
+  const addrChip = $("addrChip");
 
-// ✅ Update button state
-function updateButtons() {
-  const disabled = alreadyDidRitualToday();
-  document.getElementById("gmBtn").disabled = disabled;
-  document.getElementById("gnBtn").disabled = disabled;
-  document.getElementById("sleepBtn").disabled = disabled;
-}
+  function short(addr){ return addr.slice(0,6)+"…"+addr.slice(-4); }
 
-// ✅ Auto-switch or add Base chain
-async function ensureBase() {
-  if (!window.ethereum) return;
-  try {
-    await window.ethereum.request({
-      method: "wallet_switchEthereumChain",
-      params: [{ chainId: "0x2105" }]
-    });
-  } catch (err) {
+  function disableAllButtons(val){
+    gmBtn.classList.toggle("disabled", val);
+    gnBtn.classList.toggle("disabled", val);
+    sleepBtn.classList.toggle("disabled", val);
+  }
+
+  function updateUIConnected(){
+    connectBtn.classList.add("disabled");
+    disconnectBtn.classList.remove("disabled");
+    userBar.style.display = "block";
+    addrChip.textContent = short(account);
+
+    checkCooldown() ? disableAllButtons(true) : disableAllButtons(false);
+  }
+
+  function updateUIDisconnected(){
+    connectBtn.classList.remove("disabled");
+    disconnectBtn.classList.add("disabled");
+    userBar.style.display = "none";
+    disableAllButtons(true);
+  }
+
+  async function ensureBase(){
+    const eth = window.ethereum;
+    const cid = await eth.request({method:"eth_chainId"});
+    if (cid === BASE_CHAIN) return;
     try {
-      await window.ethereum.request({
-        method: "wallet_addEthereumChain",
-        params: [{
-          chainId: "0x2105",
-          chainName: "Base",
-          rpcUrls: ["https://mainnet.base.org"],
-          nativeCurrency: { name: "Base", symbol: "ETH", decimals: 18 },
-          blockExplorerUrls: ["https://basescan.org"]
-        }]
+      await eth.request({ method:"wallet_switchEthereumChain", params:[{chainId:BASE_CHAIN}] });
+    } catch(e){
+      if (e.code === 4902){
+        await eth.request({
+          method:"wallet_addEthereumChain",
+          params:[{
+            chainId:BASE_CHAIN,
+            chainName:"Base",
+            rpcUrls:["https://mainnet.base.org"],
+            nativeCurrency:{name:"Base Ether",symbol:"ETH",decimals:18},
+            blockExplorerUrls:["https://basescan.org"]
+          }]
+        });
+      } else throw e;
+    }
+  }
+
+  async function connect(){
+    try{
+      const eth = window.ethereum || window.okxwallet || (window.bitkeep && window.bitkeep.ethereum);
+      if (!eth){ alert("Wallet not detected"); return; }
+
+      await ensureBase();
+
+      provider = new ethers.providers.Web3Provider(eth,"any");
+      await provider.send("eth_requestAccounts",[]);
+      signer = provider.getSigner();
+      account = await signer.getAddress();
+
+      updateUIConnected();
+
+      eth.on("accountsChanged", (acc)=>{
+        if (!acc.length){ disconnect(); return; }
+        account = acc[0]; addrChip.textContent = short(account);
+        updateUIConnected();
       });
-    } catch (e) {}
-  }
-}
 
-// ✅ Connect wallet
-async function connectWallet() {
-  if (!window.ethereum) {
-    alert("No Web3 wallet detected. Use OKX/Bitget/MetaMask dApp browser.");
-    return;
-  }
+      eth.on("chainChanged",(cid)=>{
+        if (cid !== BASE_CHAIN) disconnect();
+      });
 
-  try {
-    await ensureBase();
-
-    provider = new ethers.BrowserProvider(window.ethereum);
-    signer = await provider.getSigner();
-    userAddress = await signer.getAddress();
-
-    document.getElementById("connectBtn").innerText = "Connected ✅";
-
-    updateButtons();
-
-  } catch (err) {
-    alert("Connection failed.");
-  }
-}
-
-// ✅ Ritual execution
-async function performRitual(message) {
-  if (alreadyDidRitualToday()) {
-    alert("You've already performed today's ritual ✅ Come back tomorrow.");
-    return;
+    }catch(e){
+      console.error(e);
+      alert("Connection failed");
+      updateUIDisconnected();
+    }
   }
 
-  try {
-    await ensureBase();
-
-    provider = new ethers.BrowserProvider(window.ethereum);
-    signer = await provider.getSigner();
-
-    const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
-    const fee = await contract.fee();
-
-    const tx = await contract.performRitual(message, { value: fee });
-    alert("Transaction submitted...");
-    await tx.wait();
-
-    markRitualDone();  // ✅ Save ritual day
-    updateButtons();   // ✅ Disable buttons
-
-    alert("Ritual complete ✅");
-
-  } catch (err) {
-    console.error(err);
-    alert("Ritual failed ❌");
+  function disconnect(){
+    provider = null; signer = null; account = null;
+    updateUIDisconnected();
   }
-}
 
-// ✅ Bind buttons
-document.getElementById("connectBtn").onclick = connectWallet;
-document.getElementById("gmBtn").onclick = () => performRitual("GM ⚡");
-document.getElementById("gnBtn").onclick = () => performRitual("GN 🌙");
-document.getElementById("sleepBtn").onclick = () => performRitual("GoSleep 😴");
+  function cooldownKey(){ return "ritual_"+account; }
 
+  function checkCooldown(){
+    if (!account) return true;
+    const saved = localStorage.getItem(cooldownKey());
+    if (!saved) return false;
+    const today = new Date().toISOString().slice(0,10);
+    return saved === today;
+  }
+
+  function markCooldown(){
+    const today = new Date().toISOString().slice(0,10);
+    localStorage.setItem(cooldownKey(), today);
+  }
+
+  async function ritual(msg){
+    if (checkCooldown()){
+      alert("Already did ritual today ✅");
+      return;
+    }
+    try{
+      await ensureBase();
+      const c = new ethers.Contract(CONTRACT, ABI, signer);
+      const fee = await c.fee();
+
+      const tx = await c.performRitual(msg, { value: fee });
+      alert("Waiting confirmation…");
+      await tx.wait();
+
+      markCooldown();
+      disableAllButtons(true);
+      alert("Ritual completed ✅");
+
+    }catch(err){
+      console.error(err);
+      alert("Ritual failed ❌");
+    }
+  }
+
+  connectBtn.onclick = connect;
+  disconnectBtn.onclick = disconnect;
+  gmBtn.onclick = () => ritual("GM ⚡");
+  gnBtn.onclick = () => ritual("GN 🌙");
+  sleepBtn.onclick = () => ritual("GoSleep 😴");
+
+  updateUIDisconnected();
+
+})();
 </script>
 
 </body>
