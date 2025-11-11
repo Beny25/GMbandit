@@ -1,141 +1,113 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>GMbandit Rituals</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<!-- Background Style -->
-<style>
-body {
-  margin: 0;
-  font-family: Arial, sans-serif;
-  background: linear-gradient(135deg, #0033cc, #66aaff);
-  color: white;
-  text-align: center;
-}
-
-header {
-  padding: 20px;
-}
-
-button {
-  padding: 12px 20px;
-  margin: 10px;
-  border: none;
-  border-radius: 12px;
-  font-size: 16px;
-  cursor: pointer;
-}
-
-#connect-btn {
-  background: rgba(255,255,255,0.2);
-  color: white;
-  border: 1px solid white;
-}
-
-.action-btn {
-  background: #ffffff;
-  color: #0033cc;
-  font-weight: bold;
-}
-</style>
-
-<!-- ethers.js ✅ -->
-<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
-
-<!-- Web3Modal + WalletConnect ✅ -->
-<script src="https://unpkg.com/@walletconnect/web3modal@1.9.8/dist/index.umd.min.js"></script>
-<script src="https://unpkg.com/@walletconnect/web3-provider@1.7.8/dist/umd/index.min.js"></script>
-
+  <meta charset="utf-8" />
+  <title>Deploy GMbanditV2 • Base</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    body{margin:0;background:#0e1117;color:#e9eefb;font-family:Inter,system-ui,Arial}
+    .wrap{max-width:780px;margin:48px auto;padding:0 16px}
+    h1{margin:0 0 8px;font-size:34px}
+    .card{background:#111826;border:1px solid #1f2430;border-radius:16px;padding:20px}
+    label{display:block;margin:12px 0 6px;color:#9aa4b2}
+    input{width:100%;padding:12px;border-radius:10px;border:1px solid #283044;background:#0c1424;color:#e9eefb}
+    .row{display:flex;gap:12px;flex-wrap:wrap}
+    button{cursor:pointer;border:0;border-radius:12px;padding:14px 18px;font-weight:700}
+    .primary{background:#2563eb;color:#fff}
+    .ghost{background:#0d1320;color:#cbd5e1;border:1px solid #1e293b}
+    .muted{color:#9aa4b2}
+    .chip{display:inline-flex;gap:8px;background:#0b1324;border:1px solid #1f2a44;padding:10px 12px;border-radius:12px;font-size:14px}
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 </head>
 <body>
+<div class="wrap">
+  <h1>Deploy your GMbanditV2 Contract</h1>
+  <p class="muted">Connect → auto-fill Owner → set Collector → Deploy (Base Mainnet 8453).</p>
 
-<header>
-  <h1>🟦 GMbandit Rituals</h1>
-  <button id="connect-btn" onclick="connectWallet()">Connect Wallet</button>
-</header>
+  <div class="card">
+    <div style="margin-bottom:12px;">
+      <button id="connectBtn" class="primary">Connect Wallet</button>
+      <span id="addrChip" class="chip" style="display:none;"></span>
+    </div>
 
-<p>One GM, One GN, One Sleep — Onchain forever.</p>
+    <label>Owner Address (auto)</label>
+    <input id="owner" placeholder="0x…" readonly />
 
-<button class="action-btn" onclick="ritual('gm')">GM Ritual ⚡</button>
-<button class="action-btn" onclick="ritual('gn')">GN Ritual 🌙</button>
-<button class="action-btn" onclick="ritual('gosleep')">Sleep Ritual 😴</button>
+    <label>Collector Address</label>
+    <input id="collector" placeholder="0xCollector…" />
+
+    <div style="margin-top:16px" class="row">
+      <button id="deployBtn" class="primary">Deploy Now 🚀</button>
+      <a href="/" class="ghost" style="text-decoration:none;display:inline-block;padding:14px 18px;">← Back to Dashboard</a>
+    </div>
+  </div>
+</div>
 
 <script>
-// ✅ Contract Address
-const CONTRACT_ADDRESS = "0x725Ccb4ddCB715f468b301395Dfd1b1efDb5308A"; // ganti jika perlu
+(() => {
+  const BASE_CHAIN_ID_HEX = "0x2105"; // 8453
+  const connectBtn = document.getElementById("connectBtn");
+  const ownerInput = document.getElementById("owner");
+  const collectorInput = document.getElementById("collector");
+  const deployBtn = document.getElementById("deployBtn");
+  const addrChip = document.getElementById("addrChip");
 
-// ✅ ABI (versi simple)
-const ABI = [
-  "function gm() external payable",
-  "function gn() external payable",
-  "function gosleep() external payable"
-];
+  let provider, signer, account;
 
-// ✅ WalletConnect Configuration
-const providerOptions = {
-  walletconnect: {
-    package: window.WalletConnectProvider.default,
-    options: {
-      rpc: {
-        8453: "https://mainnet.base.org"
-      }
+  async function ensureBase(){
+    const eth = window.ethereum || window.okxwallet || (window.bitkeep && window.bitkeep.ethereum) || window.bitgetwallet;
+    if (!eth) throw new Error("No wallet detected");
+    const current = eth.chainId || (await eth.request({method:"eth_chainId"}));
+    if (current === BASE_CHAIN_ID_HEX) return;
+    try{
+      await eth.request({method:"wallet_switchEthereumChain", params:[{chainId:BASE_CHAIN_ID_HEX}]});
+    }catch(err){
+      if (err && err.code===4902){
+        await eth.request({method:"wallet_addEthereumChain", params:[{
+          chainId:BASE_CHAIN_ID_HEX, chainName:"Base",
+          rpcUrls:["https://mainnet.base.org"],
+          nativeCurrency:{name:"Base Ether",symbol:"ETH",decimals:18},
+          blockExplorerUrls:["https://basescan.org"]
+        }]});
+      } else { throw err; }
     }
   }
-};
 
-// ✅ Web3Modal Init
-const web3Modal = new window.Web3Modal.default({
-  cacheProvider: false,
-  providerOptions,
-  theme: "dark"
-});
-
-let provider;
-let signer;
-
-// ✅ Connect Wallet
-async function connectWallet() {
-  try {
-    const instance = await web3Modal.connect();
-    provider = new ethers.providers.Web3Provider(instance);
-    signer = provider.getSigner();
-
-    const addr = await signer.getAddress();
-    document.getElementById("connect-btn").innerText =
-      addr.substring(0, 6) + "..." + addr.slice(-4);
-
-  } catch (err) {
-    alert("Wallet connection failed!");
+  async function connect(){
+    try{
+      const eth = window.ethereum || window.okxwallet || (window.bitkeep && window.bitkeep.ethereum) || window.bitgetwallet;
+      if (!eth){ alert("Open in MetaMask/OKX/Bitget dApp browser"); return; }
+      await ensureBase();
+      provider = new ethers.providers.Web3Provider(eth, "any");
+      await provider.send("eth_requestAccounts", []);
+      signer = provider.getSigner();
+      account = await signer.getAddress();
+      ownerInput.value = account;
+      addrChip.style.display = "inline-flex";
+      addrChip.textContent = account.slice(0,6)+"…"+account.slice(-4);
+      connectBtn.textContent = "Connected ✅";
+      connectBtn.disabled = true;
+    }catch(e){
+      console.error(e); alert("Connection failed");
+    }
   }
-}
 
-// ✅ Ritual Interaction
-async function ritual(type) {
-  if (!signer) return alert("Connect wallet first ✅");
-
-  try {
-    const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
-
-    let tx;
-    const ritualFee = ethers.utils.parseEther("0.00000033");
-
-    if (type === "gm") tx = await contract.gm({ value: ritualFee });
-    if (type === "gn") tx = await contract.gn({ value: ritualFee });
-    if (type === "gosleep") tx = await contract.gosleep({ value: ritualFee });
-
-    alert("Transaction sent! Hash: " + tx.hash);
-
-    await tx.wait();
-    alert("✅ Ritual success!");
-
-  } catch (err) {
-    alert("Transaction failed: " + err.message);
+  // NOTE: ganti bytecode + ABI deploy sesuai Factory kamu jika nanti mau benar-benar deploy dari UI.
+  // Untuk saat ini tombol akan kasih alert info.
+  async function deployNow(){
+    if (!signer){ await connect(); }
+    const owner = ownerInput.value.trim();
+    const collector = collectorInput.value.trim();
+    if (!ethers.utils.isAddress(owner) || !ethers.utils.isAddress(collector)){
+      alert("Invalid owner/collector address"); return;
+    }
+    alert("UI deploy dummy dulu. (Backend/factory deploy bisa ditambah nanti)");
   }
-}
 
+  connectBtn.onclick = connect;
+  deployBtn.onclick = deployNow;
+})();
 </script>
-
 </body>
 </html>
