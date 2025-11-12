@@ -2,80 +2,99 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>GMbandit • WalletConnect v2 Test</title>
+  <title>GMbandit • WalletConnect Test</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
     body {
       background: linear-gradient(180deg, #1E3A8A 0%, #60A5FA 50%, #ffffff 100%);
-      font-family: Inter, system-ui;
-      color: #0f172a;
+      font-family: system-ui, Arial;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       height: 100vh;
-      margin: 0;
       text-align: center;
+      color: #111;
     }
+    h1 { margin-bottom: 12px; }
+    p { color: #374151; font-size: 14px; max-width: 400px; }
     button {
-      padding: 12px 24px;
-      border: none;
-      border-radius: 10px;
       background: #2563eb;
       color: white;
-      font-weight: 600;
-      font-size: 16px;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 10px;
       cursor: pointer;
-      transition: 0.2s;
+      font-size: 16px;
+      font-weight: 600;
+      margin-top: 18px;
     }
-    button:hover { background: #1e40af; }
-    #address { margin-top: 20px; font-size: 15px; color: #111827; word-break: break-all; }
+    button:hover { background: #1d4ed8; }
+    #status { margin-top: 20px; font-size: 15px; }
   </style>
 
-  <!-- ✅ WalletConnect v2 global -->
-  <script src="https://reowncdn.walletconnect.com/v2/ethereum-provider.min.js"></script>
+  <!-- ✅ CDN versi browser-ready WalletConnect SignClient -->
+  <script src="https://cdn.jsdelivr.net/npm/@walletconnect/sign-client@2.10.6/dist/index.min.js"></script>
+
+  <!-- ✅ QR modal library -->
+  <script src="https://cdn.jsdelivr.net/npm/@walletconnect/qrcode-modal@2.1.2/dist/index.min.js"></script>
 </head>
 
 <body>
-  <h2>🔗 GMbandit WalletConnect v2 Test</h2>
+  <h1>GMbandit WalletConnect v2</h1>
+  <p>Test QR connection using your Reown projectId.<br/>Works with MetaMask, OKX, or Bitget mobile wallets.</p>
   <button id="connectBtn">Connect Wallet</button>
-  <div id="address"></div>
+  <div id="status"></div>
 
   <script>
-    const connectBtn = document.getElementById("connectBtn");
-    const addressDiv = document.getElementById("address");
+    const projectId = "5194488ab401df6dd9c95f1e360d29b4";
+    const status = document.getElementById("status");
+    const btn = document.getElementById("connectBtn");
 
-    async function initProvider() {
+    btn.onclick = async () => {
       try {
-  const provider = await window.WalletConnectEthereumProvider.init({
-  projectId: "5194488ab401df6dd9c95f1e360d29b4",
-  relayUrl: "wss://relay.walletconnect.com",
-  chains: [8453],
-  metadata: {
-    name: "GMbandit",
-    description: "Onchain Rituals on Base",
-    url: "https://gm-bandit.vercel.app",
-    icons: ["https://gm-bandit.vercel.app/assets/gmbandit.jpg"]
-  }
-});
+        status.textContent = "⏳ Initializing WalletConnect...";
+        const signClient = await window.WalletConnectSignClient.init({
+          projectId,
+          metadata: {
+            name: "GMbandit",
+            description: "Onchain Rituals on Base",
+            url: "https://gm-bandit.vercel.app",
+            icons: ["https://gm-bandit.vercel.app/assets/gmbandit.jpg"],
+          },
+        });
 
-        connectBtn.onclick = async () => {
-          try {
-            await provider.connect();
-            const accounts = await provider.request({ method: "eth_accounts" });
-            addressDiv.textContent = `✅ Connected: ${accounts[0]}`;
-          } catch (err) {
-            console.error(err);
-            addressDiv.textContent = "❌ Connection failed.";
-          }
-        };
+        console.log("✅ SignClient initialized:", signClient);
+
+        // Buat pairings baru (QR)
+        const { uri, approval } = await signClient.connect({
+          requiredNamespaces: {
+            eip155: {
+              methods: ["eth_sendTransaction", "personal_sign"],
+              chains: ["eip155:8453"], // Base chain
+              events: ["chainChanged", "accountsChanged"],
+            },
+          },
+        });
+
+        if (uri) {
+          console.log("QR URI:", uri);
+          window.WalletConnectQRCodeModal.open(uri, () => {
+            console.log("QR modal closed");
+          });
+        }
+
+        const session = await approval();
+        window.WalletConnectQRCodeModal.close();
+
+        status.textContent = "✅ Connected: " + session.namespaces.eip155.accounts[0];
+        console.log("Session:", session);
+
       } catch (err) {
-        console.error("Init error:", err);
-        addressDiv.textContent = "⚠️ Init failed. Check console.";
+        console.error(err);
+        status.textContent = "❌ " + (err.message || "Connection failed");
       }
-    }
-
-    initProvider();
+    };
   </script>
 </body>
 </html>
