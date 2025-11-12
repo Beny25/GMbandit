@@ -33,7 +33,7 @@
   </style>
 
   <!-- ✅ WalletConnect v2 global -->
-  <script src="https://unpkg.com/@walletconnect/ethereum-provider@2.10.3/dist/index.umd.min.js"></script>
+  <script src="https://reowncdn.walletconnect.com/v2/ethereum-provider.min.js"></script>
 </head>
 
 <body>
@@ -47,17 +47,17 @@
 
     async function initProvider() {
       try {
-        const provider = await window.WalletConnectEthereumProvider.init({
-          projectId: "5194488ab401df6dd9c95f1e360d29b4",
-          chains: [8453],
-          showQrModal: true,
-          metadata: {
-            name: "GMbandit",
-            description: "Onchain Rituals on Base",
-            url: "https://gm-bandit.vercel.app",
-            icons: ["https://gm-bandit.vercel.app/assets/gmbandit.jpg"]
-          }
-        });
+  const provider = await window.WalletConnectEthereumProvider.init({
+  projectId: "5194488ab401df6dd9c95f1e360d29b4",
+  relayUrl: "wss://relay.walletconnect.com",
+  chains: [8453],
+  metadata: {
+    name: "GMbandit",
+    description: "Onchain Rituals on Base",
+    url: "https://gm-bandit.vercel.app",
+    icons: ["https://gm-bandit.vercel.app/assets/gmbandit.jpg"]
+  }
+});
 
         connectBtn.onclick = async () => {
           try {
