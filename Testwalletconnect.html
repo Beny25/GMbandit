@@ -32,9 +32,8 @@
     #address { margin-top: 20px; font-size: 15px; color: #111827; word-break: break-all; }
   </style>
 
-  <!-- ✅ WalletConnect v2 global UMD -->
+  <!-- ✅ WalletConnect v2 global -->
   <script src="https://unpkg.com/@walletconnect/ethereum-provider@2.10.3/dist/index.umd.min.js"></script>
-  <script src="https://unpkg.com/@walletconnect/modal@2.6.2/dist/index.umd.js"></script>
 </head>
 
 <body>
@@ -46,13 +45,18 @@
     const connectBtn = document.getElementById("connectBtn");
     const addressDiv = document.getElementById("address");
 
-    (async () => {
+    async function initProvider() {
       try {
         const provider = await window.WalletConnectEthereumProvider.init({
           projectId: "5194488ab401df6dd9c95f1e360d29b4",
-          chains: [8453], // Base Mainnet
+          chains: [8453],
           showQrModal: true,
-          methods: ["eth_sendTransaction", "personal_sign", "eth_signTypedData"],
+          metadata: {
+            name: "GMbandit",
+            description: "Onchain Rituals on Base",
+            url: "https://gm-bandit.vercel.app",
+            icons: ["https://gm-bandit.vercel.app/assets/gmbandit.jpg"]
+          }
         });
 
         connectBtn.onclick = async () => {
@@ -69,7 +73,9 @@
         console.error("Init error:", err);
         addressDiv.textContent = "⚠️ Init failed. Check console.";
       }
-    })();
+    }
+
+    initProvider();
   </script>
 </body>
 </html>
