@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>GMbandit • WalletConnect Test</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="icon" href="data:," />
+
+  <style>
+    :root{
+      --bg:#0f1115; --card:#161a22; --text:#e9eefb; --muted:#9aa4b2;
+      --blue:#2563eb; --purple:#7c3aed; --slate:#334155; 
+      --green:#16a34a; --red:#ef4444;
+    }
+    *{box-sizing:border-box;font-family:Inter,system-ui,Arial}
+    body {
+      margin:0;
+      background: linear-gradient(180deg, #1E3A8A 0%, #60A5FA 50%, #ffffff 100%);
+      color: var(--text);
+    }
+    .wrap{max-width:880px;margin:48px auto;padding:0 16px;text-align:center}
+    h1{font-size:38px;margin:0 0 6px}
+    .sub{color:#1f2937;margin-bottom:32px}
+
+    .card{
+      background:rgba(22,26,34,.85);
+      border:1px solid #1f2430;
+      border-radius:16px;
+      padding:24px;
+    }
+
+    .row{display:flex;gap:14px;flex-wrap:wrap;justify-content:center}
+    button{cursor:pointer;border:0;border-radius:12px;padding:14px 18px;font-weight:600;transition:.15s}
+    .btn{min-width:220px}
+    .primary{background:var(--blue);color:#fff}
+    .danger{background:var(--red);color:#fff}
+    .gm{background:#1d4ed8;color:#fff}
+    .gn{background:#6d28d9;color:#fff}
+    .sleep{background:#374151;color:#cbd5e1}
+    .disabled{opacity:.55;pointer-events:none}
+
+    .chip{
+      display:inline-flex;align-items:center;gap:8px;
+      background:#0b1324;border:1px solid #1f2a44;
+      color:#cfe0ff;padding:10px 12px;border-radius:12px;font-size:14px
+    }
+    .chip .dot{width:8px;height:8px;border-radius:999px;background:#16a34a;display:inline-block}
+    .foot{color:var(--muted);font-size:13px;margin-top:22px}
+    a.link{color:#7aa2ff;text-decoration:none}
+  </style>
+
+  <!-- ethers + walletconnect -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <script src="https://unpkg.com/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
+</head>
+
+<body>
+  <div class="wrap">
+    <img src="assets/gmbandit.jpg" alt="GMbandit Banner" style="max-width:100%;border-radius:12px;margin-bottom:12px" />
+    <div style="color:#1e3a8a;font-size:14px;margin-bottom:28px">
+      Testing universal wallet connection via <strong>WalletConnect</strong> 🔗<br/>
+      Works on Farcaster, Base app, and all browsers.
+    </div>
+
+    <h1>GMbandit WalletConnect Test</h1>
+    <div class="sub">Connect → Choose Ritual → Confirm TX (Base Chain 8453)</div>
+
+    <div class="card">
+      <div class="row" style="margin-bottom:12px;">
+        <button id="connectBtn" class="btn primary">Connect Wallet</button>
+        <button id="disconnectBtn" class="btn danger disabled">Disconnect</button>
+      </div>
+
+      <div id="addrBar" style="margin:12px 0 18px;display:none;">
+        <span class="chip"><span class="dot"></span><span id="addrShort">0x…</span></span>
+      </div>
+
+      <div class="row" style="margin-top:4px;">
+        <button id="gmBtn" class="btn gm disabled">GM Ritual 🌞</button>
+        <button id="gnBtn" class="btn gn disabled">GN Ritual 🌙</button>
+        <button id="sleepBtn" class="btn sleep disabled">GoSleep 😴</button>
+      </div>
+
+      <div class="foot">
+        <a class="link" href="/">← Back to GMbandit Dashboard</a>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const CONTRACT = "0x725Ccb4ddCB715f468b301395Dfd1b1efDb5308A";
+  const ABI = [
+    "function performRitual(string calldata newMessage) external payable",
+    "function fee() view returns (uint256)"
+  ];
+  const BASE_CHAIN = "0x2105";
+
+  const $ = (id)=>document.getElementById(id);
+  const connectBtn = $("connectBtn");
+  const disconnectBtn = $("disconnectBtn");
+  const gmBtn = $("gmBtn");
+  const gnBtn = $("gnBtn");
+  const sleepBtn = $("sleepBtn");
+  const addrBar = $("addrBar");
+  const addrShort = $("addrShort");
+
+  let provider, signer, account;
+
+  function short(a){return a?a.slice(0,6)+"…"+a.slice(-4):"";}
+  function setDisabled(el,bool){el.classList.toggle("disabled",bool);}
+  function showConnected(addr){
+    connectBtn.textContent="Connected ✅";
+    setDisabled(connectBtn,true);
+    setDisabled(disconnectBtn,false);
+    addrBar.style.display="block";
+    addrShort.textContent = short(addr);
+    refreshButtons();
+  }
+  function showDisconnected(){
+    connectBtn.textContent="Connect Wallet";
+    setDisabled(connectBtn,false);
+    setDisabled(disconnectBtn,true);
+    addrBar.style.display="none";
+    setDisabled(gmBtn,true);
+    setDisabled(gnBtn,true);
+    setDisabled(sleepBtn,true);
+  }
+
+  // cooldown
+  function key(type){return "cool_"+type+"_"+account;}
+  function checkCooldown(type){
+    if (!account) return true;
+    const saved = localStorage.getItem(key(type));
+    if (!saved) return false;
+    const today = new Date().toISOString().slice(0,10);
+    return saved === today;
+  }
+  function mark(type){
+    const today = new Date().toISOString().slice(0,10);
+    localStorage.setItem(key(type), today);
+  }
+  function refreshButtons(){
+    setDisabled(gmBtn, checkCooldown("GM"));
+    setDisabled(gnBtn, checkCooldown("GN"));
+    setDisabled(sleepBtn, checkCooldown("SLEEP"));
+  }
+
+  // get provider universal
+  async function getProvider(){
+    let eth = window.ethereum || window.okxwallet || window.bitgetwallet || (window.bitkeep && window.bitkeep.ethereum);
+    if (!eth){
+      const walletConnect = new WalletConnectProvider.default({
+        rpc: { 8453: "https://mainnet.base.org" },
+        chainId: 8453,
+        qrcode: true
+      });
+      await walletConnect.enable();
+      eth = walletConnect;
+    }
+    return eth;
+  }
+
+  async function ensureBase(eth){
+    if (!eth) throw new Error("No wallet detected");
+    const chainId = await eth.request({ method:"eth_chainId" });
+    if (chainId === BASE_CHAIN) return;
+    try {
+      await eth.request({
+        method:"wallet_switchEthereumChain",
+        params:[{ chainId: BASE_CHAIN }]
+      });
+    } catch(e){
+      if (e.code===4902){
+        await eth.request({
+          method:"wallet_addEthereumChain",
+          params:[{
+            chainId: BASE_CHAIN,
+            chainName:"Base",
+            rpcUrls:["https://mainnet.base.org"],
+            nativeCurrency:{ name:"Base Ether",symbol:"ETH",decimals:18 },
+            blockExplorerUrls:["https://basescan.org"]
+          }]
+        });
+      } else { throw e; }
+    }
+  }
+
+  async function connect(){
+    try{
+      const eth = await getProvider();
+      await ensureBase(eth);
+
+      provider = new ethers.providers.Web3Provider(eth,"any");
+      await provider.send("eth_requestAccounts",[]);
+      signer = provider.getSigner();
+      account = await signer.getAddress();
+
+      showConnected(account);
+    }catch(e){
+      console.error(e);
+      showDisconnected();
+      alert("Connection failed ❌");
+    }
+  }
+
+  function disconnect(){
+    provider=null; signer=null; account=null;
+    showDisconnected();
+  }
+
+  async function ritual(type,message){
+    if(checkCooldown(type)){
+      alert("You already did "+type+" today ✅");
+      return;
+    }
+    try{
+      const eth = await getProvider();
+      await ensureBase(eth);
+
+      const c = new ethers.Contract(CONTRACT, ABI, signer);
+      const fee = await c.fee();
+      const tx = await c.performRitual(message,{value:fee});
+      alert("TX sent… waiting confirmation");
+      await tx.wait();
+      mark(type);
+      refreshButtons();
+      alert(type+" ritual complete ✅");
+    }catch(err){
+      console.error(err);
+      alert("Ritual failed ❌");
+    }
+  }
+
+  connectBtn.onclick = connect;
+  disconnectBtn.onclick = disconnect;
+  gmBtn.onclick = ()=>ritual("GM","GM ⚡");
+  gnBtn.onclick = ()=>ritual("GN","GN 🌙");
+  sleepBtn.onclick = ()=>ritual("SLEEP","GoSleep 😴");
+  showDisconnected();
+})();
+</script>
+</body>
+  </html>
