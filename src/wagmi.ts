@@ -10,8 +10,9 @@ export const config = createConfig({
     walletConnect({
       projectId: process.env.NEXT_PUBLIC_WC_PROJECT_ID!,
       metadata: {
-        name: "VibeBadge",
-        description: "VibeBadge Minting App",
+        name: "GMbandit",
+        description: "GMbandit Rituals onchains mini App",
+
         url: "https://gm-bandit.vercel.app",
         icons: ["https://gm-bandit.vercel.app/icon.png"]
       }
