@@ -1,11 +1,13 @@
-require("@nomicfoundation/hardhat-toolbox");
-require("dotenv").config();
+import "@nomicfoundation/hardhat-verify";
+import dotenv from "dotenv";
+dotenv.config();
 
-module.exports = {
-  solidity: "0.8.24",
+export default {
+  solidity: "0.8.20",
 
   networks: {
     base: {
+      type: "http",
       url: process.env.BASE_RPC_URL,
       accounts: [process.env.PRIVATE_KEY_DEPLOYER],
       chainId: 8453, // ✅ WAJIB untuk api v2 

@@ -15,13 +15,17 @@
     "url": "https://github.com/beny25/GMbandit/issues"
   },
   "homepage": "https://github.com/beny25/GMbandit#readme",
-  "devDependencies": {
-    "hardhat": "^2.22.0",
-    "@nomicfoundation/hardhat-toolbox": "3.0.0",
-    "@nomicfoundation/hardhat-verify": "1.0.0"
-  },
   "dependencies": {
     "@openzeppelin/contracts": "^5.0.2",
-    "dotenv": "^16.6.1"
+    "@walletconnect/ethereum-provider": "^2.23.0",
+    "ethers": "^6.15.0",
+    "viem": "^2.39.0",
+    "wagmi": "^2.19.3"
+  },
+  "type": "module",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-verify": "^3.0.6",
+    "dotenv": "^17.2.3",
+    "hardhat": "^3.0.13"
   }
 }
