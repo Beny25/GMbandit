@@ -230,10 +230,7 @@
 
   // ========= Ritual ==========
 async function ritual(type, message) {
-  if (checkCooldown(type)) {
-    alert("You already did " + type + " today ✅");
-    return;
-  }
+  if (checkCooldown(type)) return; // diam aja kalau cooldown
 
   try {
     await ensureBase();
@@ -241,34 +238,29 @@ async function ritual(type, message) {
     const c = new ethers.Contract(CONTRACT, ABI, signer);
     const fee = await c.fee();
 
-    // ==== SIMULASI TANPA CEK SALDO ====
-    alert("Simulating ritual...");
+    // === SIMULASI TANPA ALERT ===
+    const read = c.connect(signer.provider);
+
     try {
-      const read = c.connect(signer.provider);
       await read.callStatic.performRitual(message, { value: fee });
+      // simulasi OK, silent
     } catch (e) {
-      alert("Simulation failed ❌");
-      console.error(e);
-      return;
+      console.log("Simulation failed:", e);
+      return; // STOP tapi tanpa popup
     }
 
-    // ==== WALLET YG PUTUSIN SALDO CUKUP / GA ====
-    alert("Simulation OK ✓ Please confirm in wallet");
-
+    // === WALLET DECIDE ===
     const tx = await c.performRitual(message, { value: fee });
-    alert("TX sent... waiting confirmation");
-
     await tx.wait();
+
     mark(type);
     refreshButtons();
 
-    alert(type + " ritual complete 🎉");
-
   } catch (err) {
-    console.error(err);
-    alert("Ritual failed ❌");
+    console.log("TX Error:", err);
+    // NO ALERT → biar wallet yang handle error popup
   }
-  }
+}
 
   // ===== Bind =======
   connectBtn.onclick = connect;
