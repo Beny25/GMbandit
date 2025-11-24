@@ -238,13 +238,7 @@
       alert("You already did "+type+" today ✅");
       return;
     }
-
-    // ✅ PATCH: Detect Base App (Smart wallet) and block ritual TX
-    const eth = window.ethereum || window.okxwallet || window.bitgetwallet || (window.bitkeep && window.bitkeep.ethereum);
-    if (eth?.isBaseWallet || eth?.isSmartAccount || (eth?.providerInfo?.name === "base")) {
-      alert("Base App wallet is not supported for rituals yet 🚧\nPlease use Bitget / MetaMask / OKX dApp browser.");
-      return;
-    }
+    
     try{
       await ensureBase();
       const c = new ethers.Contract(CONTRACT, ABI, signer);
