@@ -241,10 +241,14 @@ async function ritual(type, message) {
     const c = new ethers.Contract(CONTRACT, ABI, signer);
     const fee = await c.fee();
 
-    // ---- SIMULASI DULU (Tidak butuh ETH) ----
+    // ---- SIMULASI PAKAI PROVIDER (tidak cek saldo) ----
     alert("Simulating ritual...");
+
     try {
-      await c.performRitual.staticCall(message, { value: fee });
+      const provider = new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
+      const sim = new ethers.Contract(CONTRACT, ABI, provider);
+
+      await sim.callStatic.performRitual(message, { value: fee });
       console.log("Simulation OK");
     } catch (simErr) {
       console.error(simErr);
@@ -252,13 +256,11 @@ async function ritual(type, message) {
       return;
     }
 
-    alert("Simulation success ✓ Please confirm in wallet.");
+    alert("Simulation success ✓ Please confirm transaction");
 
-    // ---- KIRIM TX SEBENARNYA ----
-    // Wallet akan auto stop kalau user tidak punya ETH cukup
+    // ---- EXECUTE TX PAKAI SIGNER ----
     const tx = await c.performRitual(message, { value: fee });
     alert("TX sent… waiting confirmation");
-
     await tx.wait();
 
     mark(type);
@@ -269,7 +271,7 @@ async function ritual(type, message) {
     console.error(err);
     alert("Ritual failed ❌");
   }
-}
+  }
 
   // ===== Bind =======
   connectBtn.onclick = connect;
