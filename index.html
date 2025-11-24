@@ -241,39 +241,34 @@ async function ritual(type, message) {
     const c = new ethers.Contract(CONTRACT, ABI, signer);
     const fee = await c.fee();
 
-    // SIMULASI (provider, tidak cek saldo)
+    // ==== SIMULASI TANPA CEK SALDO ====
     alert("Simulating ritual...");
     try {
-      const provider = new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
-      const sim = new ethers.Contract(CONTRACT, ABI, provider);
-      await sim.callStatic.performRitual(message, { value: fee });
+      const read = c.connect(signer.provider);
+      await read.callStatic.performRitual(message, { value: fee });
     } catch (e) {
       alert("Simulation failed ❌");
+      console.error(e);
       return;
     }
 
-    // CEK SALDO
-    const balance = await signer.getBalance();
-    if (balance.lt(fee)) {
-      alert("Not enough ETH for gas/fee. Please top up.");
-      return;
-    }
-
-    alert("Simulation success ✓ Please confirm transaction");
+    // ==== WALLET YG PUTUSIN SALDO CUKUP / GA ====
+    alert("Simulation OK ✓ Please confirm in wallet");
 
     const tx = await c.performRitual(message, { value: fee });
     alert("TX sent... waiting confirmation");
-    await tx.wait();
 
+    await tx.wait();
     mark(type);
     refreshButtons();
+
     alert(type + " ritual complete 🎉");
 
   } catch (err) {
     console.error(err);
     alert("Ritual failed ❌");
   }
-}
+  }
 
   // ===== Bind =======
   connectBtn.onclick = connect;
