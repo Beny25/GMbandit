@@ -229,27 +229,47 @@
   }
 
   // ========= Ritual ==========
-  async function ritual(type,message){
-    if(checkCooldown(type)){
-      alert("You already did "+type+" today ✅");
+async function ritual(type, message) {
+  if (checkCooldown(type)) {
+    alert("You already did " + type + " today ✅");
+    return;
+  }
+
+  try {
+    await ensureBase();
+
+    const c = new ethers.Contract(CONTRACT, ABI, signer);
+    const fee = await c.fee();
+
+    // ---- SIMULASI DULU (Tidak butuh ETH) ----
+    alert("Simulating ritual...");
+    try {
+      await c.performRitual.staticCall(message, { value: fee });
+      console.log("Simulation OK");
+    } catch (simErr) {
+      console.error(simErr);
+      alert("Simulation failed ❌");
       return;
     }
-    
-    try{
-      await ensureBase();
-      const c = new ethers.Contract(CONTRACT, ABI, signer);
-      const fee = await c.fee();
-      const tx = await c.performRitual(message,{value:fee});
-      alert("TX sent… waiting confirmation");
-      await tx.wait();
-      mark(type);
-      refreshButtons();
-      alert(type+" ritual complete ✅");
-    }catch(err){
-      console.error(err);
-      alert("Ritual failed ❌");
-    }
+
+    alert("Simulation success ✓ Please confirm in wallet.");
+
+    // ---- KIRIM TX SEBENARNYA ----
+    // Wallet akan auto stop kalau user tidak punya ETH cukup
+    const tx = await c.performRitual(message, { value: fee });
+    alert("TX sent… waiting confirmation");
+
+    await tx.wait();
+
+    mark(type);
+    refreshButtons();
+    alert(type + " ritual complete 🎉");
+
+  } catch (err) {
+    console.error(err);
+    alert("Ritual failed ❌");
   }
+}
 
   // ===== Bind =======
   connectBtn.onclick = connect;
