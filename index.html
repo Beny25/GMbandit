@@ -229,48 +229,42 @@
   }
 
 // ========= Ritual (FINAL FIX VERSION) ==========
-  async function ritual(type, message) {
-  // Cek cooldown
-  if (checkCooldown(type)) {
-    notify("You already did " + type + " today ✅");
-    return;
-  }
+async function ritual(type, message) {
+if (checkCooldown(type)) {
+alert("You already did " + type + " today ✅");
+return;
+}
 
-  try {
-    await ensureBase();
+try {
+await ensureBase();
 
-    // 🔥 CEK SALDO ETH
-    const balance = await signer.getBalance();
-    if (balance.eq(0)) {
-      notify("You need a tiny bit of ETH to perform this ritual ⚡️");
-      return;
+const c = new ethers.Contract(CONTRACT, ABI, signer);  
+const fee = await c.fee();  
+
+// Try local estimation (safe)  
+let overrides = {};  
+try {  
+  const gas = await c.estimateGas.performRitual(message, { value: fee });  
+  overrides = { value: fee, gasLimit: gas };  
+} catch {  
+  overrides = { value: fee }; // smart wallet prefer simpler call  
+}  
+
+// 🟦 MAIN TX (SAFE FOR BASE APP)  
+const tx = await c.performRitual(message, overrides);  
+
+alert("TX sent… waiting confirmation");  
+await tx.wait();  
+
+mark(type);  
+refreshButtons();  
+alert(type + " ritual complete ✅");
+
+} catch (err) {
+console.error(err);
+alert("Ritual failed ❌");
+}
     }
-
-    // ====== LANJUTAN LOGIKA RITUAL ======
-    const c = new ethers.Contract(CONTRACT, ABI, signer);
-    const fee = await c.fee();
-
-    let overrides = {};
-    try {
-      const gas = await c.estimateGas.performRitual(message, { value: fee });
-      overrides = { value: fee, gasLimit: gas };
-    } catch {
-      overrides = { value: fee };
-    }
-
-    const tx = await c.performRitual(message, overrides);
-    notify("Transaction sent… waiting confirmation");
-    await tx.wait();
-
-    mark(type);
-    refreshButtons();
-    notify(type + " ritual complete ✅");
-
-  } catch (err) {
-    console.error(err);
-    notify("Ritual failed ❌");
-  }
-  }
   
   // ===== Bind =======
   connectBtn.onclick = connect;
