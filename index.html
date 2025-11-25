@@ -241,16 +241,14 @@
     const c = new ethers.Contract(CONTRACT, ABI, signer);
     const fee = await c.fee();
 
-    // Try local estimation (safe)
     let overrides = {};
     try {
       const gas = await c.estimateGas.performRitual(message, { value: fee });
       overrides = { value: fee, gasLimit: gas };
     } catch {
-      overrides = { value: fee }; // smart wallet prefer simpler call
+      overrides = { value: fee };
     }
 
-    // 🟦 MAIN TX (SAFE FOR BASE APP)
     const tx = await c.performRitual(message, overrides);
 
     alert("TX sent… waiting confirmation");
@@ -261,7 +259,20 @@
     alert(type + " ritual complete ✅");
 
   } catch (err) {
-    console.error(err);
+
+    console.error("TX ERROR:", err);
+
+    // === wallet simulation only, zero balance ===
+    if (
+      err?.message?.includes("insufficient funds") ||
+      err?.message?.includes("gas required exceeds allowance") ||
+      err?.message?.includes("cannot estimate gas") ||
+      err?.code === "INSUFFICIENT_FUNDS"
+    ) {
+      // wallet already shows top-up message
+      return;
+    }
+
     alert("Ritual failed ❌");
   }
   }
