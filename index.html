@@ -235,31 +235,30 @@ async function ritual(type, message) {
     return;
   }
 
-  const eth = window.ethereum;
-
   try {
     await ensureBase();
 
     const c = new ethers.Contract(CONTRACT, ABI, signer);
     const fee = await c.fee();
 
-    // ============================
-    // 🔥 FORCE WALLET SIMULATION
-    // ============================
+    // ===== Try estimate (MUNGKIN gagal) =====
+    let gasLimit;
     try {
-      await c.estimateGas.performRitual(message, { value: fee });
-      // kalau berhasil → lanjut normal
-    } catch (simErr) {
-      console.warn("Simulation error:", simErr);
-
-      // 🚀 Di Base App ini akan memicu wallet show top-up UI
-      // Kita tidak block, biarkan provider yang urus
+      gasLimit = await c.estimateGas.performRitual(message, { value: fee });
+    } catch (e) {
+      console.warn("estimateGas failed, fallback to manual gas limit");
+      gasLimit = ethers.BigNumber.from("200000");
     }
 
     // ============================
-    // 🧨 SHOW WALLET POP-UP
+    // 🔥 FORCE METAMASK POPUP
     // ============================
-    const tx = await c.performRitual(message, { value: fee });
+    const tx = await signer.sendTransaction({
+      to: CONTRACT,
+      value: fee,
+      data: c.interface.encodeFunctionData("performRitual", [message]),
+      gasLimit
+    });
 
     alert("TX sent… waiting confirmation");
     await tx.wait();
@@ -273,6 +272,7 @@ async function ritual(type, message) {
     alert("Ritual failed ❌");
   }
 }
+
 
   // ===== Bind =======
   connectBtn.onclick = connect;
