@@ -238,55 +238,20 @@
   try {
     await ensureBase();
 
-    const eth = getEth();
     const c = new ethers.Contract(CONTRACT, ABI, signer);
     const fee = await c.fee();
 
-    // Wallet type detection
-    const isSmart = eth?.isSmartAccount || eth?.isBaseWallet || eth?.isCoinbaseWallet;
-
-    // ================================
-    // 🟦 CASE 1: BASE SMART WALLET
-    // ================================
-    if (isSmart) {
-      console.log("Using SMART WALLET flow");
-
-      let overrides = {};
-      try {
-        const gas = await c.estimateGas.performRitual(message, { value: fee });
-        overrides = { value: fee, gasLimit: gas };
-      } catch {
-        overrides = { value: fee };
-      }
-
-      const tx = await c.performRitual(message, overrides);
-      alert("TX sent… waiting confirmation (Base App)");
-      await tx.wait();
-
-      mark(type);
-      refreshButtons();
-      alert(type + " ritual complete ✅");
-      return;
-    }
-
-    // ================================
-    // 🟩 CASE 2: EOA WALLETS (MetaMask, OKX, Bitget)
-    // ================================
-    console.log("Using RAW EOA flow");
-
-    let gasLimit;
+    // Try local estimation (safe)
+    let overrides = {};
     try {
-      gasLimit = await c.estimateGas.performRitual(message, { value: fee });
+      const gas = await c.estimateGas.performRitual(message, { value: fee });
+      overrides = { value: fee, gasLimit: gas };
     } catch {
-      gasLimit = ethers.BigNumber.from("200000"); // fallback safe
+      overrides = { value: fee }; // smart wallet prefer simpler call
     }
 
-    const tx = await signer.sendTransaction({
-      to: CONTRACT,
-      value: fee,
-      data: c.interface.encodeFunctionData("performRitual", [message]),
-      gasLimit
-    });
+    // 🟦 MAIN TX (SAFE FOR BASE APP)
+    const tx = await c.performRitual(message, overrides);
 
     alert("TX sent… waiting confirmation");
     await tx.wait();
@@ -299,7 +264,7 @@
     console.error(err);
     alert("Ritual failed ❌");
   }
-  }
+    }
   
   // ===== Bind =======
   connectBtn.onclick = connect;
