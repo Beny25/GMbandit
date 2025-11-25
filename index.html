@@ -228,30 +228,63 @@
     showDisconnected();
   }
 
-  // ========= Ritual ==========
+// ========= Ritual ==========
 async function ritual(type, message) {
-  if (checkCooldown(type)) return;
+  if (checkCooldown(type)) {
+    alert("You already did " + type + " today ✅");
+    return;
+  }
+
+  // 🔓 PATCH: ALLOW Base App (no blocking)
+  const eth = window.ethereum || window.okxwallet || window.bitgetwallet || (window.bitkeep && window.bitkeep.ethereum);
+  // (tidak ada blocking lagi)
 
   try {
     await ensureBase();
 
     const c = new ethers.Contract(CONTRACT, ABI, signer);
-    const fee = await c.fee();
 
-    // Anti-kedip delay ringan (mirip efek alert)
-    await new Promise(r => setTimeout(r, 60));
+    // ============================
+    // 🔮 SIMULATE FEE (works even if user has 0 ETH)
+    // ============================
+    let fee;
+    try {
+      fee = await c.fee();
+    } catch (e) {
+      console.warn("Could not fetch fee:", e);
+      alert("Failed to load ritual fee ❌");
+      return;
+    }
 
-    // Wallet akan simulasi sendiri
+    // ❗ CEK SALDO WALLET (di Base) MESKI 0 ETH
+    const bal = await signer.getBalance();
+    const enough = bal.gte(fee);
+
+    if (!enough) {
+      // Bisa lihat fee + ritual tetap kebuka, tapi minta top-up dulu sebelum TX
+      alert(
+        "Ritual fee: " + ethers.utils.formatEther(fee) + " ETH\n" +
+        "Your balance: " + ethers.utils.formatEther(bal) + " ETH\n\n" +
+        "You need more ETH for gas ⛽\nBut simulation worked!"
+      );
+      return;
+    }
+
+    // ============================
+    // ✨ PROCEED WITH ACTUAL TX
+    // ============================
     const tx = await c.performRitual(message, { value: fee });
+    alert("TX sent… waiting confirmation");
 
     await tx.wait();
 
     mark(type);
     refreshButtons();
+    alert(type + " ritual complete ✅");
 
   } catch (err) {
-    console.log("TX error:", err);
-    // Jangan alert → biar wallet kasih pesan asli
+    console.error(err);
+    alert("Ritual failed ❌");
   }
 }
 
