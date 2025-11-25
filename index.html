@@ -228,43 +228,28 @@
     showDisconnected();
   }
 
-// ========= Ritual (FINAL FIX VERSION) ==========
-  async function ritual(type, message) {
-  if (checkCooldown(type)) {
-    alert("You already did " + type + " today ✅");
-    return;
-  }
-
-  try {
-    await ensureBase();
-
-    const c = new ethers.Contract(CONTRACT, ABI, signer);
-    const fee = await c.fee();
-
-    // Try local estimation (safe)
-    let overrides = {};
-    try {
-      const gas = await c.estimateGas.performRitual(message, { value: fee });
-      overrides = { value: fee, gasLimit: gas };
-    } catch {
-      overrides = { value: fee }; // smart wallet prefer simpler call
+// ========= Ritual ==========
+  async function ritual(type,message){
+    if(checkCooldown(type)){
+      alert("You already did "+type+" today ✅");
+      return;
     }
 
-    // 🟦 MAIN TX (SAFE FOR BASE APP)
-    const tx = await c.performRitual(message, overrides);
-
-    alert("TX sent… waiting confirmation");
-    await tx.wait();
-
-    mark(type);
-    refreshButtons();
-    alert(type + " ritual complete ✅");
-
-  } catch (err) {
-    console.error(err);
-    alert("Ritual failed ❌");
-  }
+    try{
+      await ensureBase();
+      const c = new ethers.Contract(CONTRACT, ABI, signer);
+      const fee = await c.fee();
+      const tx = await c.performRitual(message,{value:fee});
+      alert("TX sent… waiting confirmation");
+      await tx.wait();
+      mark(type);
+      refreshButtons();
+      alert(type+" ritual complete ✅");
+    }catch(err){
+      console.error(err);
+      alert("Ritual failed ❌");
     }
+  }
   
   // ===== Bind =======
   connectBtn.onclick = connect;
