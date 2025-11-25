@@ -238,22 +238,23 @@ async function ritual(type, message) {
     const c = new ethers.Contract(CONTRACT, ABI, signer);
     const fee = await c.fee();
 
-    // Langsung kirim TX → biar wallet yang handle simulasi
+    // Anti-kedip delay ringan (mirip efek alert)
+    await new Promise(r => setTimeout(r, 60));
+
+    // Wallet akan simulasi sendiri
     const tx = await c.performRitual(message, { value: fee });
 
-    // TIDAK ADA UI UPDATE DI SINI.
-    // BIARKAN tombol tetap seperti semula.
     await tx.wait();
 
-    // Kalau sukses → baru update UI
     mark(type);
     refreshButtons();
 
-  } catch (e) {
-    console.log(e);
-    // Jangan alert, jangan ubah UI
+  } catch (err) {
+    console.log("TX error:", err);
+    // Jangan alert → biar wallet kasih pesan asli
   }
-  }
+}
+
   // ===== Bind =======
   connectBtn.onclick = connect;
   disconnectBtn.onclick = disconnect;
