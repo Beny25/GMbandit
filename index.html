@@ -230,39 +230,45 @@
 
 // ========= Ritual (FINAL FIX VERSION) ==========
   async function ritual(type, message) {
+  // Cek cooldown
   if (checkCooldown(type)) {
-    alert("You already did " + type + " today ✅");
+    notify("You already did " + type + " today ✅");
     return;
   }
 
   try {
     await ensureBase();
 
+    // 🔥 CEK SALDO ETH
+    const balance = await signer.getBalance();
+    if (balance.eq(0)) {
+      notify("You need a tiny bit of ETH to perform this ritual ⚡️");
+      return;
+    }
+
+    // ====== LANJUTAN LOGIKA RITUAL ======
     const c = new ethers.Contract(CONTRACT, ABI, signer);
     const fee = await c.fee();
 
-    // Try local estimation (safe)
     let overrides = {};
     try {
       const gas = await c.estimateGas.performRitual(message, { value: fee });
       overrides = { value: fee, gasLimit: gas };
     } catch {
-      overrides = { value: fee }; // smart wallet prefer simpler call
+      overrides = { value: fee };
     }
 
-    // 🟦 MAIN TX (SAFE FOR BASE APP)
     const tx = await c.performRitual(message, overrides);
-
-    alert("TX sent… waiting confirmation");
+    notify("Transaction sent… waiting confirmation");
     await tx.wait();
 
     mark(type);
     refreshButtons();
-    alert(type + " ritual complete ✅");
+    notify(type + " ritual complete ✅");
 
   } catch (err) {
     console.error(err);
-    alert("Ritual failed ❌");
+    notify("Ritual failed ❌");
   }
   }
   
